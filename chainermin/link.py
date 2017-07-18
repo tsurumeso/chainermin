@@ -1,8 +1,6 @@
 import numpy
+
 from chainermin import variable
-from chainermin.initializer import Normal
-from chainermin.initializer import Constant
-from chainermin.function import linear
 
 
 class Link(object):
@@ -54,15 +52,3 @@ class Chain(Link):
             prefix = '/' + name
             for path, param in self.__dict__[name].namedparams():
                 yield prefix + path, param
-
-
-class Linear(Link):
-
-    def __init__(self, in_size, out_size):
-        super(Linear, self).__init__()
-        wscale = numpy.sqrt(2. / in_size)
-        self.add_param('W', (out_size, in_size), initializer=Normal(wscale))
-        self.add_param('b', out_size, initializer=Constant(0))
-
-    def __call__(self, x):
-        return linear(x, self.W, self.b)
