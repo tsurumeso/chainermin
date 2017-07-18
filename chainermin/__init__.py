@@ -1,0 +1,1 @@
+from chainermin.link import Chain
