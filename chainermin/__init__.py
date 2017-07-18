@@ -1,6 +1,6 @@
-from chainermin import functions
-from chainermin import initializers
-from chainermin import links
-from chainermin import optimizers
+from chainermin import functions  # NOQA
+from chainermin import initializers  # NOQA
+from chainermin import links  # NOQA
+from chainermin import optimizers  # NOQA
 
-from chainermin.link import Chain
+from chainermin.link import Chain  # NOQA

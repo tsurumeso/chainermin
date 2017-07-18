@@ -1,6 +1,3 @@
-import numpy
-
-
 class Initializer(object):
 
     def __init__(self, dtype=None):

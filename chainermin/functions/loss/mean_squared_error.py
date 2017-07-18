@@ -15,6 +15,6 @@ class MeanSquaredError(function.Function):
         gx = coeff * self.diff
         return gx, -gx
 
-        
+
 def mean_squared_error(y, t):
     return MeanSquaredError()(y, t)

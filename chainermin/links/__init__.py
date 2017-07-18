@@ -1,1 +1,1 @@
-from chainermin.links.connection.linear import Linear
+from chainermin.links.connection.linear import Linear  # NOQA

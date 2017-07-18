@@ -1,11 +1,10 @@
-import numpy
 from chainermin import variable
 
 
 class Function(object):
 
     def __call__(self, *inputs):
-        inputs = [x if isinstance(x, variable.Variable) 
+        inputs = [x if isinstance(x, variable.Variable)
                   else variable.Variable(x)
                   for x in inputs]
         in_data = [x.data for x in inputs]

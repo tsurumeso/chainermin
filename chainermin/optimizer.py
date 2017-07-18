@@ -1,6 +1,3 @@
-import numpy
-
-
 class Optimizer(object):
 
     def setup(self, link):

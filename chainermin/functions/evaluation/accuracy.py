@@ -4,7 +4,7 @@ from chainermin import function
 
 
 class Accuracy(function.Function):
-    
+
     def forward(self, inputs):
         y, t = inputs
         pred = y.argmax(axis=1).reshape(t.shape)
