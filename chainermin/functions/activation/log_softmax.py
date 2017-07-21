@@ -1,6 +1,6 @@
 import numpy
 
-from chainer import function
+from chainermin import function
 
 
 def _log_softmax(x):

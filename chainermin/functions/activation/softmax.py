@@ -1,6 +1,6 @@
 import numpy
 
-from chainer import function
+from chainermin import function
 
 
 class Softmax(function.Function):

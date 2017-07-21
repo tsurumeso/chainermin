@@ -1,7 +1,7 @@
 import numpy
 
-from chainer import function
-from chainer.functions.activation import log_softmax
+from chainermin import function
+from chainermin.functions.activation import log_softmax
 
 
 class SoftmaxCrossEntropy(function.Function):
@@ -53,5 +53,5 @@ class SoftmaxCrossEntropy(function.Function):
         return gx, None
 
 
-def softmax_cross_entropy(x, t, normalize=True, cache_score=True):
-    return SoftmaxCrossEntropy(normalize, cache_score)(x, t)
+def softmax_cross_entropy(x, t, cache_score=True):
+    return SoftmaxCrossEntropy(cache_score)(x, t)
