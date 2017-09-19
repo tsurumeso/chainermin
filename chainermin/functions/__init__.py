@@ -3,6 +3,7 @@ from chainermin.functions.activation.relu import relu  # NOQA
 from chainermin.functions.activation.sigmoid import sigmoid  # NOQA
 from chainermin.functions.activation.softmax import softmax  # NOQA
 
+from chainermin.functions.connection.convolution_2d import convolution_2d  # NOQA
 from chainermin.functions.connection.linear import linear  # NOQA
 
 from chainermin.functions.evaluation.accuracy import accuracy  # NOQA
