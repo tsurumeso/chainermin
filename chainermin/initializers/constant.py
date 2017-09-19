@@ -9,7 +9,6 @@ class Constant(initializer.Initializer):
         self.fill_value = fill_value
         super(Constant, self).__init__(dtype)
 
-    def __call__(self, shape):
-        array = numpy.empty(shape, dtype=self.dtype)
+    def __call__(self, array):
         array[...] = numpy.asarray(self.fill_value)
         return array

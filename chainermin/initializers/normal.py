@@ -9,7 +9,18 @@ class Normal(initializer.Initializer):
         self.scale = scale
         super(Normal, self).__init__(dtype)
 
-    def __call__(self, shape):
-        array = numpy.empty(shape, dtype=self.dtype)
-        array[...] = numpy.random.normal(0.0, self.scale, size=shape)
+    def __call__(self, array):
+        array[...] = numpy.random.normal(0.0, self.scale, size=array.shape)
         return array
+
+
+class HeNormal(initializer.Initializer):
+
+    def __init__(self, scale=1.0, dtype=None):
+        self.scale = scale
+        super(HeNormal, self).__init__(dtype)
+
+    def __call__(self, array):
+        fan_in, fan_out = initializer.get_fans(array.shape)
+        s = self.scale * numpy.sqrt(2. / fan_in)
+        Normal(s)(array)

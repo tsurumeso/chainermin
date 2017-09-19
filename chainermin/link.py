@@ -1,5 +1,6 @@
 import numpy
 
+from chainermin import initializers
 from chainermin import variable
 
 
@@ -14,7 +15,7 @@ class Link(object):
         if initializer is None:
             data = numpy.full(shape, 0, dtype=dtype)
         else:
-            data = initializer(shape)
+            data = initializers.generate_array(initializer, shape)
         grad = numpy.zeros_like(data)
         var = variable.Variable(data, grad)
         self._params.append(name)
