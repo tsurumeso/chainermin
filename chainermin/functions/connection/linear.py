@@ -11,7 +11,6 @@ class LinearFunction(function.Function):
 
     def backward(self, inputs, grad_outputs):
         x, W = inputs[:2]
-
         gy = grad_outputs[0]
 
         gx = gy.dot(W).reshape(x.shape)

@@ -5,8 +5,6 @@ from chainermin import function
 
 class Softmax(function.Function):
 
-    """Softmax activation function."""
-
     def __init__(self, axis=1):
         self.axis = axis
 
