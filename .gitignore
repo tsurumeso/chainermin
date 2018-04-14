@@ -1,2 +1,6 @@
 *~
+*.mat
 *.pyc
+build
+chainermin.egg-info/
+dist/
