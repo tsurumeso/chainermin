@@ -1,4 +1,3 @@
-from chainermin.functions.activation.log_softmax import log_softmax  # NOQA
 from chainermin.functions.activation.relu import relu  # NOQA
 from chainermin.functions.activation.sigmoid import sigmoid  # NOQA
 from chainermin.functions.activation.softmax import softmax  # NOQA

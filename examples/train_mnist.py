@@ -30,12 +30,12 @@ if __name__ == '__main__':
     hidden_units = 1000
 
     mnist = fetch_mldata('MNIST original', data_home='.')
-    mnist.data = mnist.data.astype(np.float32)
-    mnist.data /= 255
-    mnist.target = mnist.target.astype(np.int32)
+    X = mnist.data.astype(np.float32)
+    X /= 255
+    y = mnist.target.astype(np.int32)
 
-    x_train, x_test = np.split(mnist.data, [N])
-    y_train, y_test = np.split(mnist.target, [N])
+    x_train, x_test = np.split(X, [N])
+    y_train, y_test = np.split(y, [N])
     N_test = y_test.size
 
     model = MLP(hidden_units)
