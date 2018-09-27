@@ -9,4 +9,6 @@ from chainermin.functions.evaluation.accuracy import accuracy  # NOQA
 from chainermin.functions.loss.mean_squared_error import mean_squared_error  # NOQA
 from chainermin.functions.loss.softmax_cross_entropy import softmax_cross_entropy  # NOQA
 
+from chainermin.functions.math import basic_math  # NOQA
+
 from chainermin.functions.noise.dropout import dropout  # NOQA

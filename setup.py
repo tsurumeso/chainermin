@@ -12,9 +12,11 @@ setup(
               'chainermin.functions.connection',
               'chainermin.functions.evaluation',
               'chainermin.functions.loss',
+              'chainermin.functions.math',
               'chainermin.functions.noise',
               'chainermin.initializers',
               'chainermin.links',
               'chainermin.links.connection',
-              'chainermin.optimizers'],
+              'chainermin.optimizers',
+              'chainermin.utils'],
 )
