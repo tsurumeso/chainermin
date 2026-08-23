@@ -4,3 +4,4 @@
 build
 chainermin.egg-info/
 dist/
+openml/
