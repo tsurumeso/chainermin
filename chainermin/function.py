@@ -1,3 +1,5 @@
+import weakref
+
 from chainermin import config
 from chainermin import variable
 
@@ -15,7 +17,7 @@ class Function(object):
             for y in ret:
                 y.set_creator(self)
             self.inputs = inputs
-            self.outputs = ret
+            self.outputs = [weakref.ref(y) for y in ret]
         if len(ret) == 1:
             return ret[0]
         else:

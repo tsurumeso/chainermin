@@ -14,7 +14,7 @@ class Variable(object):
     def set_creator(self, gen_func):
         self.creator = gen_func
 
-    def backward(self):
+    def backward(self, retain_grad=False):
         if self.creator is None:
             return
 
@@ -34,7 +34,7 @@ class Variable(object):
         while not cand_funcs.empty():
             func = cand_funcs.get()
             in_data = [x.data for x in func.inputs]
-            out_grad = [y.grad for y in func.outputs]
+            out_grad = [y().grad for y in func.outputs]
             gxs = func.backward(in_data, out_grad)
 
             for x, gx in zip(func.inputs, gxs):
@@ -45,6 +45,10 @@ class Variable(object):
 
                 if x.creator is not None:
                     add_cand(x.creator)
+
+            if not retain_grad:
+                for y in func.outputs:
+                    y().grad = None
 
     def zerograd(self):
         self.grad.fill(0)
