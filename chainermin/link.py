@@ -43,6 +43,12 @@ class Chain(Link):
             self._children.append(name)
             self.__dict__[name] = link
 
+    def __setattr__(self, name, value):
+        if isinstance(value, Link):
+            value.name = name
+            self._children.append(name)
+        super(Chain, self).__setattr__(name, value)
+
     def params(self):
         for name in self._children:
             for param in self.__dict__[name].params():
@@ -53,3 +59,8 @@ class Chain(Link):
             prefix = '/' + name
             for path, param in self.__dict__[name].namedparams():
                 yield prefix + path, param
+
+    def zerograds(self):
+        super(Chain, self).zerograds()
+        for name in self._children:
+            self.__dict__[name].zerograds()

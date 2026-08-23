@@ -125,14 +125,16 @@ class SmallLanguageModel(chainermin.Chain):
         super(SmallLanguageModel, self).__init__()
         self.tok_embd = L.EmbedID(vocab_size, embd_size)
         self.pos_embd = L.EmbedID(context_length, embd_size)
-        self.blocks = [DecoderBlock(num_heads, embd_size) for _ in range(num_layers)]
+        for idx in range(num_layers):
+            layer_name = f"block_{idx}"
+            layer = DecoderBlock(num_heads, embd_size)
+            setattr(self, layer_name, layer)
         self.ln = L.LayerNormalization(embd_size)
         self.lm_head = L.Linear(embd_size, vocab_size)
 
-        # Causal mask: lower-triangular
-        self.causal_mask = np.tril(np.ones((context_length, context_length), dtype=np.float32))
+        self.num_layers = num_layers
 
-    def __call__(self, x):
+    def __call__(self, x, causal_mask):
         # Token + position embeddings
         pos_ids = np.arange(x.shape[1], dtype=np.int32)
         x = self.tok_embd(x) + self.pos_embd(pos_ids)
@@ -141,8 +143,9 @@ class SmallLanguageModel(chainermin.Chain):
         x = F.dropout(x, ratio=0.1)
 
         # Stacked decoder blocks
-        for block in self.blocks:
-            x = block(x, self.causal_mask)
+        for idx in range(self.num_layers):
+            block = getattr(self, f"block_{idx}")
+            x = block(x, causal_mask)
 
         x = self.ln(x, n_batch_axes=2)
         return self.lm_head(x, n_batch_axes=2)
@@ -169,9 +172,12 @@ if __name__ == '__main__':
     # Target: dummy target for loss computation
     t = np.random.rand(1, context_length, vocab_size).astype(np.float32)
 
+    # Causal mask: lower-triangular
+    causal_mask = np.tril(np.ones((context_length, context_length), dtype=np.int32))
+
     # Training mode: dropout active, graph built
     start = time.perf_counter()
-    out = model(x)  # (1, context_length, vocab_size)
+    out = model(x, causal_mask)  # (1, context_length, vocab_size)
     end = time.perf_counter()
     print("Training forward: {:.4f}s".format(end - start))
     print("Output shape:", out.shape)
@@ -185,7 +191,7 @@ if __name__ == '__main__':
     # Inference: dropout disabled, no graph
     start = time.perf_counter()
     with chainermin.inference_mode():
-        out = model(x)
+        out = model(x, causal_mask)
     end = time.perf_counter()
     print("Inference forward: {:.4f}s".format(end - start))
     print("Output shape:", out.shape)
