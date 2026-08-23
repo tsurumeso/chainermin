@@ -6,6 +6,7 @@ from chainermin.functions.array.concat import concat  # NOQA
 from chainermin.functions.array.reshape import reshape  # NOQA
 from chainermin.functions.array.transpose import transpose  # NOQA
 
+from chainermin.functions.connection.embed_id import embed_id  # NOQA
 from chainermin.functions.connection.linear import linear  # NOQA
 
 from chainermin.functions.evaluation.accuracy import accuracy  # NOQA

@@ -57,8 +57,10 @@ class FeedForward(chainermin.Chain):
 class Block(chainermin.Chain):
     """ Transformer block: communication followed by computation """
 
-    def __init__(self, num_heads, embd_size, head_size):
+    def __init__(self, num_heads, embd_size):
         super(Block, self).__init__()
+        head_size = embd_size // num_heads
+        assert head_size * num_heads == embd_size, "embd_size must be divisible by num_heads"
         self.sa = MultiHeadAttention(num_heads, embd_size, head_size)
         self.ffwd = FeedForward(embd_size)
         self.ln1 = L.LayerNormalization(embd_size)
@@ -74,13 +76,21 @@ class Block(chainermin.Chain):
 
 class SmallLanguageModel(chainermin.Chain):
 
-    def __init__(self, vocab_size, num_layers, num_heads, embd_size, head_size):
+    def __init__(self, vocab_size, context_length, num_layers, num_heads, embd_size):
         super().__init__()
-        self.blocks = [Block(num_heads=num_heads, embd_size=embd_size, head_size=head_size) for _ in range(num_layers)]
+        self.tok_embd = L.EmbedID(vocab_size, embd_size)
+        self.pos_embd = L.EmbedID(context_length, embd_size)
+        self.blocks = [Block(num_heads=num_heads, embd_size=embd_size) for _ in range(num_layers)]
         self.ln = L.LayerNormalization(embd_size)
         self.lm_head = L.Linear(embd_size, vocab_size)
 
     def __call__(self, x):
+        # Add token and position embeddings
+        tok_embd = self.tok_embd(x)
+        pos_ids = np.arange(x.shape[1], dtype=np.int32)
+        pos_embd = self.pos_embd(pos_ids)
+        x = tok_embd + pos_embd
+
         for block in self.blocks:
             x = block(x)
         x = self.ln(x, n_batch_axes=2)
@@ -90,17 +100,17 @@ class SmallLanguageModel(chainermin.Chain):
 
 
 if __name__ == '__main__':
-    # Example usage
+    # Hyperparameters for the small language model
     num_layers = 12
     num_heads = 12
     context_length = 1024
     vocab_size = 1024
     embd_size = 768
-    head_size = embd_size // num_heads
-    model = SmallLanguageModel(vocab_size=vocab_size, num_layers=num_layers, num_heads=num_heads, embd_size=embd_size, head_size=head_size)
+
+    model = SmallLanguageModel(vocab_size=vocab_size, context_length=context_length, num_layers=num_layers, num_heads=num_heads, embd_size=embd_size)
 
     # Create a random input tensor
-    x = np.random.rand(1, context_length, embd_size).astype(np.float32)
+    x = np.random.randint(0, vocab_size, size=(1, context_length), dtype=np.int32)
     t = np.random.rand(1, context_length, vocab_size).astype(np.float32)
 
     # Training mode (default): dropout is active, graph is built
