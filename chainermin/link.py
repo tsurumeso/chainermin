@@ -2,21 +2,27 @@ import numpy
 
 from chainermin import initializers
 from chainermin import variable
+from chainermin import backend
 
 
 class Link(object):
 
     def __init__(self, **params):
         self._params = []
+        self._xp = numpy
         for name, value in params.items():
             self.add_param(name, value.shape)
 
+    @property
+    def xp(self):
+        return self._xp
+
     def add_param(self, name, shape, dtype=numpy.float32, initializer=None):
         if initializer is None:
-            data = numpy.full(shape, 0, dtype=dtype)
+            data = self._xp.full(shape, 0, dtype=dtype)
         else:
             data = initializers.generate_array(initializer, shape)
-        grad = numpy.zeros_like(data)
+        grad = self._xp.zeros_like(data)
         var = variable.Variable(data, grad)
         self._params.append(name)
         self.__dict__[name] = var
@@ -32,6 +38,20 @@ class Link(object):
     def zerograds(self):
         for param in self.params():
             param.zerograd()
+
+    def to_cpu(self):
+        if self._xp is numpy:
+            return
+        for param in self.params():
+            param.to_cpu()
+        self._xp = numpy
+
+    def to_gpu(self):
+        if self._xp is backend.cupy:
+            return
+        for param in self.params():
+            param.to_gpu()
+        self._xp = backend.cupy
 
 
 class Chain(Link):
@@ -64,3 +84,13 @@ class Chain(Link):
         super(Chain, self).zerograds()
         for name in self._children:
             self.__dict__[name].zerograds()
+
+    def to_cpu(self):
+        super(Chain, self).to_cpu()
+        for name in self._children:
+            self.__dict__[name].to_cpu()
+
+    def to_gpu(self):
+        super(Chain, self).to_gpu()
+        for name in self._children:
+            self.__dict__[name].to_gpu()

@@ -1,5 +1,3 @@
-import numpy
-
 from chainermin import function
 from chainermin import backend
 
@@ -13,9 +11,10 @@ class EmbedIDFunction(function.Function):
         return W[x],
 
     def backward(self, inputs, grad_outputs):
+        xp = backend.get_array_module(*inputs, *grad_outputs)
         x = inputs[0]
         gy = grad_outputs[0]
-        gW = numpy.zeros(self._w_shape, dtype=gy.dtype)
+        gW = xp.zeros(self._w_shape, dtype=gy.dtype)
 
         # It is equivalent to `numpy.add.at(gW, x, gy)` but ufunc.at is
         # too slow.

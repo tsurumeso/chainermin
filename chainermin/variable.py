@@ -1,7 +1,7 @@
-import numpy
 import queue
 
 import chainermin
+from chainermin import backend
 
 
 class Variable(object):
@@ -20,8 +20,9 @@ class Variable(object):
         if self.creator is None:
             return
 
+        xp = backend.get_array_module(self.data)
         if self.data.size == 1 and self.grad is None:
-            self.grad = numpy.ones_like(self.data)
+            self.grad = xp.ones_like(self.data)
 
         cand_funcs = []
         seen_set = set()
@@ -52,6 +53,16 @@ class Variable(object):
             if not retain_grad:
                 for y in func.outputs:
                     y().grad = None
+
+    def to_cpu(self):
+        self.data = backend.to_cpu(self.data)
+        if self.grad is not None:
+            self.grad = backend.to_cpu(self.grad)
+
+    def to_gpu(self):
+        self.data = backend.to_gpu(self.data)
+        if self.grad is not None:
+            self.grad = backend.to_gpu(self.grad)
 
     def zerograd(self):
         self.grad.fill(0)

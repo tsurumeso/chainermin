@@ -1,6 +1,7 @@
 import numpy
 
 from chainermin import function
+from chainermin import backend
 
 
 class Concat(function.Function):
@@ -10,11 +11,13 @@ class Concat(function.Function):
         self.axis = axis
 
     def forward(self, xs):
-        return numpy.concatenate(xs, axis=self.axis),
+        xp = backend.get_array_module(*xs)
+        return xp.concatenate(xs, axis=self.axis),
 
     def backward(self, xs, gy):
-        sizes = numpy.array([x.shape[self.axis] for x in xs[:-1]]).cumsum()
-        return numpy.split(gy[0], sizes, axis=self.axis)
+        xp = backend.get_array_module(*xs, *gy)
+        sizes = xp.array([x.shape[self.axis] for x in xs[:-1]]).cumsum()
+        return xp.split(gy[0], sizes, axis=self.axis)
 
 
 def concat(xs, axis=1):

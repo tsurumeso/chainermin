@@ -2,6 +2,7 @@ import math
 import numpy
 
 from chainermin import optimizer
+from chainermin import backend
 
 
 class Adam(optimizer.Optimizer):
@@ -13,16 +14,18 @@ class Adam(optimizer.Optimizer):
         self.eps = eps
 
     def init_state(self, param, state):
-        state['m'] = numpy.zeros_like(param.data)
-        state['v'] = numpy.zeros_like(param.data)
+        xp = backend.get_array_module(param.data)
+        state['m'] = xp.zeros_like(param.data)
+        state['v'] = xp.zeros_like(param.data)
 
     def update_one(self, param, state):
+        xp = backend.get_array_module(param.data)
         m, v = state['m'], state['v']
         grad = param.grad
 
         m += (1 - self.beta1) * (grad - m)
         v += (1 - self.beta2) * (grad * grad - v)
-        param.data -= self.lr * m / (numpy.sqrt(v) + self.eps)
+        param.data -= self.lr * m / (xp.sqrt(v) + self.eps)
 
     @property
     def lr(self):

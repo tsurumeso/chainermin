@@ -29,7 +29,7 @@ if __name__ == '__main__':
     batch_size = 100
     hidden_units = 1000
 
-    mnist = fetch_openml('mnist_784', version=1, data_home='.')
+    mnist = fetch_openml('mnist_784', version=1, data_home='.', as_frame=False)
     X = mnist.data.astype(np.float32)
     X /= 255
     y = mnist.target.astype(np.int32)
@@ -39,6 +39,8 @@ if __name__ == '__main__':
     N_test = y_test.size
 
     model = MLP(hidden_units)
+    # model.to_gpu()
+
     optimizer = optimizers.Adam()
     optimizer.setup(model)
 
@@ -47,8 +49,8 @@ if __name__ == '__main__':
         sum_loss = 0
         sum_acc = 0
         for i in range(0, N, batch_size):
-            batch_x = x_train[perm[i:i + batch_size]]
-            batch_y = y_train[perm[i:i + batch_size]]
+            batch_x = model.xp.asarray(x_train[perm[i:i + batch_size]])
+            batch_y = model.xp.asarray(y_train[perm[i:i + batch_size]])
             model.zerograds()
             loss, acc = model(batch_x, batch_y)
             loss.backward()
@@ -63,8 +65,8 @@ if __name__ == '__main__':
         sum_loss = 0
         sum_acc = 0
         for i in range(0, N_test, batch_size):
-            batch_x = x_test[i:i + batch_size]
-            batch_y = y_test[i:i + batch_size]
+            batch_x = model.xp.asarray(x_test[i:i + batch_size])
+            batch_y = model.xp.asarray(y_test[i:i + batch_size])
 
             with chainermin.inference_mode():
                 loss, acc = model(batch_x, batch_y)

@@ -1,6 +1,7 @@
 import numpy
 
 from chainermin import optimizer
+from chainermin import backend
 
 
 class MomentumSGD(optimizer.Optimizer):
@@ -10,7 +11,8 @@ class MomentumSGD(optimizer.Optimizer):
         self.momentum = momentum
 
     def init_state(self, param, state):
-        state['v'] = numpy.zeros_like(param.data)
+        xp = backend.get_array_module(param.data)
+        state['v'] = xp.zeros_like(param.data)
 
     def update_one(self, param, state):
         v = state['v']

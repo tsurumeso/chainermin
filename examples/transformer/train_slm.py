@@ -136,7 +136,7 @@ class SmallLanguageModel(chainermin.Chain):
 
     def __call__(self, x, causal_mask):
         # Token + position embeddings
-        pos_ids = np.arange(x.shape[1], dtype=np.int32)
+        pos_ids = self.xp.arange(x.shape[1], dtype=np.int32)
         x = self.tok_embd(x) + self.pos_embd(pos_ids)
 
         # Dropout after embeddings
@@ -167,31 +167,34 @@ if __name__ == '__main__':
         embd_size=embd_size
     )
 
+    # Move model parameters to GPU
+    # model.to_gpu()
+
     # Input: single token sequence (autoregressive)
-    x = np.random.randint(0, vocab_size, size=(1, context_length), dtype=np.int32)
+    x = model.xp.random.randint(0, vocab_size, size=(1, context_length), dtype=np.int32)
     # Target: dummy target for loss computation
-    t = np.random.rand(1, context_length, vocab_size).astype(np.float32)
+    t = model.xp.random.rand(1, context_length, vocab_size).astype(np.float32)
 
     # Causal mask: lower-triangular
-    causal_mask = np.tril(np.ones((context_length, context_length), dtype=np.int32))
+    causal_mask = model.xp.tril(model.xp.ones((context_length, context_length), dtype=np.int32))
 
-    # Training mode: dropout active, graph built
-    start = time.perf_counter()
-    out = model(x, causal_mask)  # (1, context_length, vocab_size)
-    end = time.perf_counter()
-    print("Training forward: {:.4f}s".format(end - start))
-    print("Output shape:", out.shape)
-
-    start = time.perf_counter()
-    loss = F.mean_squared_error(out, t)
-    loss.backward()
-    end = time.perf_counter()
-    print("Training backward: {:.4f}s".format(end - start))
-
-    # Inference: dropout disabled, no graph
-    start = time.perf_counter()
-    with chainermin.inference_mode():
+    for _ in range(10):
+        # Training mode: dropout active, graph built
+        start = time.perf_counter()
         out = model(x, causal_mask)
-    end = time.perf_counter()
-    print("Inference forward: {:.4f}s".format(end - start))
-    print("Output shape:", out.shape)
+        end = time.perf_counter()
+        print("Training forward: {:.4f}s".format(end - start))
+
+        start = time.perf_counter()
+        loss = F.mean_squared_error(out, t)
+        loss.backward()
+        model.zerograds()
+        end = time.perf_counter()
+        print("Training backward: {:.4f}s".format(end - start))
+
+        # Inference: dropout disabled, no graph
+        start = time.perf_counter()
+        with chainermin.inference_mode():
+            out = model(x, causal_mask)
+        end = time.perf_counter()
+        print("Inference forward: {:.4f}s".format(end - start))

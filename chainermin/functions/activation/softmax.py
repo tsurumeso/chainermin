@@ -1,6 +1,5 @@
-import numpy
-
 from chainermin import function
+from chainermin import backend
 
 
 class Softmax(function.Function):
@@ -9,8 +8,9 @@ class Softmax(function.Function):
         self.axis = axis
 
     def forward(self, x):
+        xp = backend.get_array_module(*x)
         self.y = x[0] - x[0].max(axis=self.axis, keepdims=True)
-        numpy.exp(self.y, out=self.y)
+        xp.exp(self.y, out=self.y)
         self.y /= self.y.sum(axis=self.axis, keepdims=True)
         return self.y,
 

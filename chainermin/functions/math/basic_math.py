@@ -3,6 +3,7 @@ import numpy
 from chainermin import function
 from chainermin import utils
 from chainermin import variable
+from chainermin import backend
 
 
 class Add(function.Function):
@@ -106,8 +107,9 @@ class PowVarVar(function.Function):
         return y,
 
     def backward(self, x, gy):
+        xp = backend.get_array_module(*x)
         gx0 = gy[0] * x[1] * x[0] ** (x[1] - 1)
-        gx1 = gy[1] * numpy.log(x[0]) * x[0] ** x[1]
+        gx1 = gy[1] * xp.log(x[0]) * x[0] ** x[1]
         return gx0, gx1
 
 
@@ -141,7 +143,8 @@ class PowConstVar(function.Function):
         return y,
 
     def backward(self, x, gy):
-        gx0 = gy[1] * numpy.log(self.value) * self.value ** x[0]
+        xp = backend.get_array_module(*x)
+        gx0 = gy[1] * xp.log(self.value) * self.value ** x[0]
         return gx0,
 
 
