@@ -6,35 +6,78 @@ import chainermin.functions as F
 import chainermin.links as L
 
 
-class AttentionHead(chainermin.Chain):
-    """Single causal self-attention head."""
+# class AttentionHead(chainermin.Chain):
+#     """Single causal self-attention head."""
 
-    def __init__(self, embd_size, head_size):
-        super(AttentionHead, self).__init__()
-        self.key = L.Linear(embd_size, head_size)
-        self.query = L.Linear(embd_size, head_size)
-        self.value = L.Linear(embd_size, head_size)
+#     def __init__(self, embd_size, head_size):
+#         super(AttentionHead, self).__init__()
+#         self.key = L.Linear(embd_size, head_size)
+#         self.query = L.Linear(embd_size, head_size)
+#         self.value = L.Linear(embd_size, head_size)
 
-    def __call__(self, x, causal_mask):
-        k = self.key(x, n_batch_axes=2)
-        q = self.query(x, n_batch_axes=2)
-        attn = F.batch_matmul(q, k.transpose(0, 2, 1)) / np.sqrt(k.shape[-1])
-        attn = attn * causal_mask - (1.0 - causal_mask) * 1e+9
-        attn = F.softmax(attn, axis=-1)
-        v = self.value(x, n_batch_axes=2)
-        return F.batch_matmul(attn, v)
+#     def __call__(self, x, causal_mask):
+#         k = self.key(x, n_batch_axes=2)
+#         q = self.query(x, n_batch_axes=2)
+#         attn = F.batch_matmul(q, k.transpose(0, 2, 1)) / np.sqrt(k.shape[-1])
+#         attn = attn * causal_mask - (1.0 - causal_mask) * 1e+9
+#         attn = F.softmax(attn, axis=-1)
+#         v = self.value(x, n_batch_axes=2)
+#         return F.batch_matmul(attn, v)
+
+
+# class MultiHeadAttention(chainermin.Chain):
+#     """Multi-head causal self-attention."""
+
+#     def __init__(self, num_heads, embd_size, head_size):
+#         super(MultiHeadAttention, self).__init__()
+#         self.heads = [AttentionHead(embd_size, head_size) for _ in range(num_heads)]
+#         self.proj = L.Linear(head_size * num_heads, embd_size)
+
+#     def __call__(self, x, causal_mask):
+#         out = F.concat([h(x, causal_mask) for h in self.heads], axis=-1)
+#         out = self.proj(out, n_batch_axes=2)
+#         out = F.dropout(out, ratio=0.1)
+#         return out
 
 
 class MultiHeadAttention(chainermin.Chain):
-    """Multi-head causal self-attention."""
+    """Multi-head causal self-attention (single matmul formulation)."""
 
     def __init__(self, num_heads, embd_size, head_size):
         super(MultiHeadAttention, self).__init__()
-        self.heads = [AttentionHead(embd_size, head_size) for _ in range(num_heads)]
-        self.proj = L.Linear(head_size * num_heads, embd_size)
+        self.num_heads = num_heads
+        self.head_size = head_size
+        # 各ヘッド分の重みを1つの Linear に統合
+        self.key = L.Linear(embd_size, embd_size)
+        self.query = L.Linear(embd_size, embd_size)
+        self.value = L.Linear(embd_size, embd_size)
+        self.proj = L.Linear(embd_size, embd_size)
 
     def __call__(self, x, causal_mask):
-        out = F.concat([h(x, causal_mask) for h in self.heads], axis=-1)
+        B, T, _ = x.shape
+        H = self.num_heads
+        d = self.head_size
+
+        # (B, T, H*d)
+        q = self.query(x, n_batch_axes=2)  
+        k = self.key(x, n_batch_axes=2)
+        v = self.value(x, n_batch_axes=2)
+
+        # (B, T, H, d) → (B, H, T, d)
+        q = q.reshape(B, T, H, d).transpose(0, 2, 1, 3)
+        k = k.reshape(B, T, H, d).transpose(0, 2, 1, 3)
+        v = v.reshape(B, T, H, d).transpose(0, 2, 1, 3)
+
+        # (B, H, T, d) @ (B, H, d, T) → (B, H, T, T)
+        attn = F.batch_matmul(q, k.transpose(0, 1, 3, 2)) / np.sqrt(d)
+        attn = attn * causal_mask - (1.0 - causal_mask) * 1e+9
+        attn = F.softmax(attn, axis=-1)
+
+        # (B, H, T, T) @ (B, H, T, d) → (B, H, T, d)
+        out = F.batch_matmul(attn, v)
+
+        # (B, H, T, d) → (B, T, H*d) = (B, T, embd_size)
+        out = out.transpose(0, 2, 1, 3).reshape(B, T, -1)
         out = self.proj(out, n_batch_axes=2)
         out = F.dropout(out, ratio=0.1)
         return out

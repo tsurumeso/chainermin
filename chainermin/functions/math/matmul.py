@@ -42,10 +42,10 @@ class BatchMatMul(function.Function):
         gy, = grad_outputs
 
         # dL/da = gy @ b^T -> (B, M, P) @ (B, P, N) -> (B, M, N)
-        ga = numpy.matmul(gy, b.transpose(0, 2, 1))
+        ga = numpy.matmul(gy, numpy.swapaxes(b, -1, -2))
         
         # dL/db = a^T @ gy -> (B, N, M) @ (B, M, P) -> (B, N, P)
-        gb = numpy.matmul(a.transpose(0, 2, 1), gy)
+        gb = numpy.matmul(numpy.swapaxes(a, -1, -2), gy)
 
         return ga, gb
 
