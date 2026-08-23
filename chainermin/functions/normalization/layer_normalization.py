@@ -1,3 +1,4 @@
+import math
 import numpy
 
 from chainermin import function
@@ -55,8 +56,21 @@ class LayerNormalization(function.Function):
         return g_x, g_gamma, g_beta,
 
 
-def layer_normalization(x, gamma, beta, eps=1e-5):
+def layer_normalization(x, gamma, beta, eps=1e-5, n_batch_axes=1):
     """Layer normalization.
     See: `Layer Normalization <https://arxiv.org/abs/1607.06450>`_
     """
-    return LayerNormalization(eps)(x, gamma, beta)
+
+    if n_batch_axes <= 0:
+        raise ValueError('n_batch_axes should be greater than 0.')
+    if n_batch_axes > 1:
+        batch_shape = x.shape[:n_batch_axes]
+        batch_size = math.prod(batch_shape)
+        x = x.reshape(batch_size, -1)
+    elif x.ndim > 2:
+        x = x.reshape(x.shape[0], -1)
+
+    y = LayerNormalization(eps)(x, gamma, beta)
+    if n_batch_axes > 1:
+        y = y.reshape(batch_shape + (-1,))
+    return y

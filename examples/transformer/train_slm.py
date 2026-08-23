@@ -6,15 +6,6 @@ import chainermin.links as L
 from chainermin import optimizers
 
 
-def layer_normalization_for_3d_tensor(layer, x):
-    # batch, sequence, embedding
-    B, S, E = x.shape
-    x_reshaped = x.reshape(B * S, E)
-    y = layer(x_reshaped)
-    y = y.reshape(B, S, E)
-    return y
-
-
 class Head(chainermin.Chain):
 
     def __init__(self, embd_size, head_size):
@@ -23,10 +14,11 @@ class Head(chainermin.Chain):
         self.query = L.Linear(embd_size, head_size)
         self.value = L.Linear(embd_size, head_size)
 
-    def __call__(self, x):
+    def __call__(self, x, train=True):
         k = self.key(x, n_batch_axes=2)
         q = self.query(x, n_batch_axes=2)
         attn = F.softmax(F.batch_matmul(q, k.transpose(0, 2, 1)) / np.sqrt(k.shape[-1]), axis=-1)
+        attn = F.dropout(attn, ratio=0.2, train=train)
         v = self.value(x, n_batch_axes=2)
         out = F.batch_matmul(attn, v)
         return out
@@ -40,9 +32,10 @@ class MultiHeadAttention(chainermin.Chain):
         self.heads = [Head(embd_size, head_size) for _ in range(num_heads)]
         self.proj = L.Linear(head_size * num_heads, embd_size)
 
-    def __call__(self, x):
+    def __call__(self, x, train=True):
         out = F.concat([h(x) for h in self.heads], axis=-1)
         out = self.proj(out, n_batch_axes=2)
+        out = F.dropout(out, ratio=0.2, train=train)
         return out
 
 
@@ -54,9 +47,10 @@ class FeedForward(chainermin.Chain):
         self.fc1 = L.Linear(embd_size, 4 * embd_size)
         self.fc2 = L.Linear(4 * embd_size, embd_size)
 
-    def __call__(self, x):
+    def __call__(self, x, train=True):
         x = F.relu(self.fc1(x, n_batch_axes=2))
         x = self.fc2(x, n_batch_axes=2)
+        x = F.dropout(x, ratio=0.2, train=train)
         return x
 
 
@@ -71,11 +65,11 @@ class Block(chainermin.Chain):
         self.ln2 = L.LayerNormalization(embd_size)
 
     def __call__(self, x):
-        h = layer_normalization_for_3d_tensor(self.ln1, x)
-        h = h + self.sa(h)
-        h = layer_normalization_for_3d_tensor(self.ln2, h)
-        h = h + self.ffwd(h)
-        return h
+        x = self.ln1(x, n_batch_axes=2)
+        x = x + self.sa(x)
+        x = self.ln2(x, n_batch_axes=2)
+        x = x + self.ffwd(x)
+        return x
 
 
 class SmallLanguageModel(chainermin.Chain):
@@ -89,7 +83,7 @@ class SmallLanguageModel(chainermin.Chain):
     def __call__(self, x):
         for block in self.blocks:
             x = block(x)
-        x = layer_normalization_for_3d_tensor(self.ln, x)
+        x = self.ln(x, n_batch_axes=2)
         logits = self.lm_head(x, n_batch_axes=2)
 
         return logits
