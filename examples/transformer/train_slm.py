@@ -6,41 +6,42 @@ import chainermin.functions as F
 import chainermin.links as L
 
 
-class Head(chainermin.Chain):
+class AttentionHead(chainermin.Chain):
+    """Single causal self-attention head."""
 
     def __init__(self, embd_size, head_size):
-        super(Head, self).__init__()
+        super(AttentionHead, self).__init__()
         self.key = L.Linear(embd_size, head_size)
         self.query = L.Linear(embd_size, head_size)
         self.value = L.Linear(embd_size, head_size)
 
-    def __call__(self, x):
+    def __call__(self, x, causal_mask):
         k = self.key(x, n_batch_axes=2)
         q = self.query(x, n_batch_axes=2)
-        attn = F.softmax(F.batch_matmul(q, k.transpose(0, 2, 1)) / np.sqrt(k.shape[-1]), axis=-1)
-        attn = F.dropout(attn, ratio=0.2)
+        attn = F.batch_matmul(q, k.transpose(0, 2, 1)) / np.sqrt(k.shape[-1])
+        attn = attn * causal_mask - (1.0 - causal_mask) * 1e+9
+        attn = F.softmax(attn, axis=-1)
         v = self.value(x, n_batch_axes=2)
-        out = F.batch_matmul(attn, v)
-        return out
+        return F.batch_matmul(attn, v)
 
 
 class MultiHeadAttention(chainermin.Chain):
-    """ multiple heads of self-attention in parallel """
+    """Multi-head causal self-attention."""
 
     def __init__(self, num_heads, embd_size, head_size):
         super(MultiHeadAttention, self).__init__()
-        self.heads = [Head(embd_size, head_size) for _ in range(num_heads)]
+        self.heads = [AttentionHead(embd_size, head_size) for _ in range(num_heads)]
         self.proj = L.Linear(head_size * num_heads, embd_size)
 
-    def __call__(self, x):
-        out = F.concat([h(x) for h in self.heads], axis=-1)
+    def __call__(self, x, causal_mask):
+        out = F.concat([h(x, causal_mask) for h in self.heads], axis=-1)
         out = self.proj(out, n_batch_axes=2)
-        out = F.dropout(out, ratio=0.2)
+        out = F.dropout(out, ratio=0.1)
         return out
 
 
 class FeedForward(chainermin.Chain):
-    """ a simple linear layer followed by a non-linearity """
+    """A simple linear layer followed by a non-linearity."""
 
     def __init__(self, embd_size):
         super(FeedForward, self).__init__()
@@ -50,15 +51,15 @@ class FeedForward(chainermin.Chain):
     def __call__(self, x):
         x = F.relu(self.fc1(x, n_batch_axes=2))
         x = self.fc2(x, n_batch_axes=2)
-        x = F.dropout(x, ratio=0.2)
+        x = F.dropout(x, ratio=0.1)
         return x
 
 
-class Block(chainermin.Chain):
-    """ Transformer block: communication followed by computation """
+class DecoderBlock(chainermin.Chain):
+    """Decoder block: causal self-attention followed by feed-forward."""
 
     def __init__(self, num_heads, embd_size):
-        super(Block, self).__init__()
+        super(DecoderBlock, self).__init__()
         head_size = embd_size // num_heads
         assert head_size * num_heads == embd_size, "embd_size must be divisible by num_heads"
         self.sa = MultiHeadAttention(num_heads, embd_size, head_size)
@@ -66,56 +67,68 @@ class Block(chainermin.Chain):
         self.ln1 = L.LayerNormalization(embd_size)
         self.ln2 = L.LayerNormalization(embd_size)
 
-    def __call__(self, x):
+    def __call__(self, x, causal_mask):
         x = self.ln1(x, n_batch_axes=2)
-        x = x + self.sa(x)
+        x = x + self.sa(x, causal_mask)
         x = self.ln2(x, n_batch_axes=2)
         x = x + self.ffwd(x)
         return x
 
 
 class SmallLanguageModel(chainermin.Chain):
+    """Decoder-only autoregressive Transformer (GPT-style)."""
 
     def __init__(self, vocab_size, context_length, num_layers, num_heads, embd_size):
-        super().__init__()
+        super(SmallLanguageModel, self).__init__()
         self.tok_embd = L.EmbedID(vocab_size, embd_size)
         self.pos_embd = L.EmbedID(context_length, embd_size)
-        self.blocks = [Block(num_heads=num_heads, embd_size=embd_size) for _ in range(num_layers)]
+        self.blocks = [DecoderBlock(num_heads, embd_size) for _ in range(num_layers)]
         self.ln = L.LayerNormalization(embd_size)
         self.lm_head = L.Linear(embd_size, vocab_size)
 
+        # Causal mask: lower-triangular
+        self.causal_mask = np.tril(np.ones((context_length, context_length), dtype=np.float32))
+
     def __call__(self, x):
-        # Add token and position embeddings
-        tok_embd = self.tok_embd(x)
+        # Token + position embeddings
         pos_ids = np.arange(x.shape[1], dtype=np.int32)
-        pos_embd = self.pos_embd(pos_ids)
-        x = tok_embd + pos_embd
+        x = self.tok_embd(x) + self.pos_embd(pos_ids)
 
+        # Dropout after embeddings
+        x = F.dropout(x, ratio=0.1)
+
+        # Stacked decoder blocks
         for block in self.blocks:
-            x = block(x)
-        x = self.ln(x, n_batch_axes=2)
-        logits = self.lm_head(x, n_batch_axes=2)
+            x = block(x, self.causal_mask)
 
-        return logits
+        x = self.ln(x, n_batch_axes=2)
+        return self.lm_head(x, n_batch_axes=2)
 
 
 if __name__ == '__main__':
-    # Hyperparameters for the small language model
+    # Hyperparameters
     num_layers = 12
     num_heads = 12
     context_length = 1024
     vocab_size = 1024
     embd_size = 768
 
-    model = SmallLanguageModel(vocab_size=vocab_size, context_length=context_length, num_layers=num_layers, num_heads=num_heads, embd_size=embd_size)
+    model = SmallLanguageModel(
+        vocab_size=vocab_size,
+        context_length=context_length,
+        num_layers=num_layers,
+        num_heads=num_heads,
+        embd_size=embd_size
+    )
 
-    # Create a random input tensor
+    # Input: single token sequence (autoregressive)
     x = np.random.randint(0, vocab_size, size=(1, context_length), dtype=np.int32)
+    # Target: dummy target for loss computation
     t = np.random.rand(1, context_length, vocab_size).astype(np.float32)
 
-    # Training mode (default): dropout is active, graph is built
+    # Training mode: dropout active, graph built
     start = time.perf_counter()
-    out = model(x)
+    out = model(x)  # (1, context_length, vocab_size)
     end = time.perf_counter()
     print("Training forward: {:.4f}s".format(end - start))
     print("Output shape:", out.shape)
@@ -126,7 +139,7 @@ if __name__ == '__main__':
     end = time.perf_counter()
     print("Training backward: {:.4f}s".format(end - start))
 
-    # Inference: dropout is disabled, no graph
+    # Inference: dropout disabled, no graph
     start = time.perf_counter()
     with chainermin.inference_mode():
         out = model(x)
