@@ -38,17 +38,13 @@ class Variable(object):
             gxs = func.backward(in_data, out_grad)
 
             for x, gx in zip(func.inputs, gxs):
-                if x.creator is None:
-                    if x.grad is None:
-                        x.grad = gx
-                    else:
-                        x.grad += gx
+                if x.grad is None:
+                    x.grad = gx
                 else:
+                    x.grad += gx
+
+                if x.creator is not None:
                     add_cand(x.creator)
-                    if x.grad is None:
-                        x.grad = gx
-                    else:
-                        x.grad += gx
 
     def zerograd(self):
         self.grad.fill(0)
