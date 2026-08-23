@@ -1,6 +1,8 @@
 import numpy
 import queue
 
+import chainermin
+
 
 class Variable(object):
 
@@ -43,3 +45,29 @@ class Variable(object):
 
     def zerograd(self):
         self.grad.fill(0)
+
+    def reshape(self, *shape):
+        if len(shape) == 1 and isinstance(shape[0], (tuple, list)):
+            shape = shape[0]
+        return chainermin.functions.reshape(self, shape)
+
+    def transpose(self, *axes):
+        if len(axes) == 0:
+            axes = None
+        elif len(axes) == 1 and (isinstance(axes[0], (tuple, list)) or
+                                 axes[0] is None):
+            axes = axes[0]
+        return chainermin.functions.transpose(self, axes)
+
+    @property
+    def T(self):
+        return chainermin.functions.transpose(self)
+
+    @property
+    def shape(self):
+        raw_shape = self.data.shape
+        return raw_shape
+
+    @property
+    def ndim(self):
+        return self.data.ndim
