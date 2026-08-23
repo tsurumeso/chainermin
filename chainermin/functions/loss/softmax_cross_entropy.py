@@ -14,7 +14,8 @@ class SoftmaxCrossEntropy(function.Function):
 
     def forward(self, inputs):
         x, t = inputs
-        self.t = numpy.array([t == i for i in range(10)]).astype(numpy.int32).T
+        n_classes = x.shape[1]
+        self.t = numpy.array([t == i for i in range(n_classes)]).astype(numpy.int32).T
         self.log_p = _log_softmax(x)
         y = -numpy.sum(self.t * self.log_p)
         return y.reshape(()),
@@ -27,3 +28,4 @@ class SoftmaxCrossEntropy(function.Function):
 
 def softmax_cross_entropy(x, t):
     return SoftmaxCrossEntropy()(x, t)
+    

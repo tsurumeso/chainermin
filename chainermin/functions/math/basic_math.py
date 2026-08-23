@@ -180,6 +180,14 @@ def sub(lhs, rhs):
     return SubConstant(rhs)(lhs)
 
 
+def matmul(self, rhs):  # lhs @ rhs
+    return chainermin.functions.matmul(self, rhs)
+
+
+def rmatmul(self, rhs):  # rhs @ lhs
+    return chainermin.functions.matmul(rhs, self)
+
+
 def install_variable_arithmetics():
     variable.Variable.__add__ = add
     variable.Variable.__radd__ = add
@@ -193,3 +201,5 @@ def install_variable_arithmetics():
     variable.Variable.__rpow__ = rpow
     variable.Variable.__sub__ = sub
     variable.Variable.__rsub__ = sub
+    variable.Variable.__matmul__ = matmul
+    variable.Variable.__rmatmul__ = rmatmul
