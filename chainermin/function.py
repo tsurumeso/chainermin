@@ -14,6 +14,7 @@ class Function(object):
         outputs = self.forward(in_data)
         ret = [variable.Variable(y) for y in outputs]
         if not config._inference_mode:
+            self.rank = max([x.rank for x in inputs])
             for y in ret:
                 y.set_creator(self)
             self.inputs = inputs

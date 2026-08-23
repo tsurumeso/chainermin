@@ -10,9 +10,11 @@ class Variable(object):
         self.data = data
         self.creator = None
         self.grad = grad
+        self.rank = 0
 
     def set_creator(self, gen_func):
         self.creator = gen_func
+        self.rank = gen_func.rank + 1
 
     def backward(self, retain_grad=False):
         if self.creator is None:
@@ -21,18 +23,19 @@ class Variable(object):
         if self.data.size == 1 and self.grad is None:
             self.grad = numpy.ones_like(self.data)
 
-        cand_funcs = queue.Queue()
+        cand_funcs = []
         seen_set = set()
 
         def add_cand(cand):
             if cand is not None and id(cand) not in seen_set:
-                cand_funcs.put(cand)
+                cand_funcs.append(cand)
                 seen_set.add(id(cand))
+                cand_funcs.sort(key=lambda x: x.rank)
 
         add_cand(self.creator)
 
-        while not cand_funcs.empty():
-            func = cand_funcs.get()
+        while cand_funcs:
+            func = cand_funcs.pop()
             in_data = [x.data for x in func.inputs]
             out_grad = [y().grad for y in func.outputs]
             gxs = func.backward(in_data, out_grad)
