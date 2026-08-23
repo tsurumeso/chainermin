@@ -14,5 +14,5 @@ class Linear(link.Link):
         self.add_param('W', (out_size, in_size), initializer=W_initializer)
         self.add_param('b', out_size, initializer=bias_initializer)
 
-    def __call__(self, x):
-        return linear.linear(x, self.W, self.b)
+    def __call__(self, x, n_batch_axes=1):
+        return linear.linear(x, self.W, self.b, n_batch_axes=n_batch_axes)
