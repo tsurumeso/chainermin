@@ -3,6 +3,7 @@ from chainermin.functions import basic_math
 from chainermin import initializers  # NOQA
 from chainermin import links  # NOQA
 from chainermin import optimizers  # NOQA
+from chainermin.config import inference_mode  # NOQA
 
 from chainermin.link import Chain  # NOQA
 

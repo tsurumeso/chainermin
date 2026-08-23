@@ -1,5 +1,6 @@
 import numpy
 
+from chainermin import config
 from chainermin import function
 
 
@@ -21,7 +22,7 @@ class Dropout(function.Function):
         return gy * self.mask,
 
 
-def dropout(x, ratio=0.5, train=True):
-    if train:
-        return Dropout(ratio)(x)
-    return x
+def dropout(x, ratio=0.5):
+    if config._inference_mode:
+        return x
+    return Dropout(ratio)(x)

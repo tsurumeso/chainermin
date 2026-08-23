@@ -1,3 +1,4 @@
+from chainermin import config
 from chainermin import variable
 
 
@@ -10,10 +11,11 @@ class Function(object):
         in_data = [x.data for x in inputs]
         outputs = self.forward(in_data)
         ret = [variable.Variable(y) for y in outputs]
-        for y in ret:
-            y.set_creator(self)
-        self.inputs = inputs
-        self.outputs = ret
+        if not config._inference_mode:
+            for y in ret:
+                y.set_creator(self)
+            self.inputs = inputs
+            self.outputs = ret
         if len(ret) == 1:
             return ret[0]
         else:

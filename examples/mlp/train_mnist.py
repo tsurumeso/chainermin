@@ -17,9 +17,9 @@ class MLP(chainermin.Chain):
             l3=L.Linear(n_units, 10)
         )
 
-    def __call__(self, x, t, train=True):
-        h = F.dropout(F.relu(self.l1(x)), train=train)
-        h = F.dropout(F.relu(self.l2(h)), train=train)
+    def __call__(self, x, t):
+        h = F.dropout(F.relu(self.l1(x)))
+        h = F.dropout(F.relu(self.l2(h)))
         y = self.l3(h)
         return F.softmax_cross_entropy(y, t), F.accuracy(y, t)
 
@@ -65,7 +65,9 @@ if __name__ == '__main__':
         for i in range(0, N_test, batch_size):
             batch_x = x_test[i:i + batch_size]
             batch_y = y_test[i:i + batch_size]
-            loss, acc = model(batch_x, batch_y, train=False)
+
+            with chainermin.inference_mode():
+                loss, acc = model(batch_x, batch_y)
 
             sum_loss += loss.data * batch_size
             sum_acc += acc.data * batch_size
