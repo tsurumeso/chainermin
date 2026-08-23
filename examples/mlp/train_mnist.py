@@ -5,7 +5,7 @@ import chainermin.functions as F
 import chainermin.links as L
 from chainermin import optimizers
 
-from sklearn.datasets import fetch_mldata
+from sklearn.datasets import fetch_openml
 
 
 class MLP(chainermin.Chain):
@@ -29,7 +29,7 @@ if __name__ == '__main__':
     batch_size = 100
     hidden_units = 1000
 
-    mnist = fetch_mldata('MNIST original', data_home='.')
+    mnist = fetch_openml('mnist_784', version=1, data_home='.')
     X = mnist.data.astype(np.float32)
     X /= 255
     y = mnist.target.astype(np.int32)
