@@ -22,7 +22,14 @@ class Variable(object):
             self.grad = numpy.ones_like(self.data)
 
         cand_funcs = queue.Queue()
-        cand_funcs.put(self.creator)
+        seen_set = set()
+
+        def add_cand(cand):
+            if cand is not None and id(cand) not in seen_set:
+                cand_funcs.put(cand)
+                seen_set.add(id(cand))
+
+        add_cand(self.creator)
 
         while not cand_funcs.empty():
             func = cand_funcs.get()
@@ -37,7 +44,7 @@ class Variable(object):
                     else:
                         x.grad += gx
                 else:
-                    cand_funcs.put(x.creator)
+                    add_cand(x.creator)
                     if x.grad is None:
                         x.grad = gx
                     else:
