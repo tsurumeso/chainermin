@@ -1,2 +1,2 @@
 # ChainerMIN
-This project is a minimal implementation for learning purposes, based on the excellent work in [Chainer](https://github.com/chainer/chainer).
+This project is my own re-implementation of [Chainer](https://github.com/chainer/chainer) to learn how it works.
