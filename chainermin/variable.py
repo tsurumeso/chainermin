@@ -1,31 +1,99 @@
 import queue
+import weakref
 
 import chainermin
 from chainermin import backend
 
 
+class VariableNode(object):
+
+    def __init__(self, variable):
+        self._variable = weakref.ref(variable)
+        self._data = None
+        self._creator_node = None
+        self._rank = 0
+
+    @property
+    def creator_node(self):
+        return self._creator_node
+
+    @creator_node.setter
+    def creator_node(self, func):
+        self._creator_node = func
+        self._rank = func.rank + 1
+
+    @property
+    def data(self):
+        return self._data
+
+    @property
+    def variable(self):
+        var = self._variable()
+        return var
+
+    @property
+    def rank(self):
+        return self._rank
+
+    def retain_data(self):
+        var = self._variable()
+        if var is not None:
+            self._data = var.data
+        else:
+            raise RuntimeError('cannot retain variable data: the variable has been already released')
+
+
 class Variable(object):
 
     def __init__(self, data, grad=None):
-        self.data = data
-        self.creator = None
-        self.grad = grad
-        self.rank = 0
+        self._data = data
+        self._node = VariableNode(self)
+        self._grad = grad
 
-    def set_creator(self, gen_func):
-        self.creator = gen_func
-        self.rank = gen_func.rank + 1
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, value):
+        self._data = value
+
+    @property
+    def node(self):
+        return self._node
+
+    @property
+    def creator_node(self):
+        return self._node.creator_node
+
+    @creator_node.setter
+    def creator_node(self, func):
+        self._node.creator_node = func
+
+    @property
+    def grad(self):
+        return self._grad
+
+    @grad.setter
+    def grad(self, value):
+        self._grad = value
+
+    @property
+    def rank(self):
+        return self._node.rank
 
     def backward(self, retain_grad=False):
-        if self.creator is None:
+        if self.creator_node is None:
             return
+
+        cand_funcs = []
+        seen_set = set()
+        grads = {}
 
         xp = backend.get_array_module(self.data)
         if self.data.size == 1 and self.grad is None:
             self.grad = xp.ones_like(self.data)
-
-        cand_funcs = []
-        seen_set = set()
+        grads[self._node] = self.grad
 
         def add_cand(cand):
             if cand is not None and id(cand) not in seen_set:
@@ -33,26 +101,31 @@ class Variable(object):
                 seen_set.add(id(cand))
                 cand_funcs.sort(key=lambda x: x.rank)
 
-        add_cand(self.creator)
+        add_cand(self.creator_node)
 
         while cand_funcs:
             func = cand_funcs.pop()
-            in_data = [x.data for x in func.inputs]
-            out_grad = [y().grad for y in func.outputs]
+            inputs = func.inputs
+            outputs = [y() for y in func.outputs]
+            in_data = [x.data for x in inputs]
+            out_grad = [grads[y] for y in outputs]
             gxs = func.backward(in_data, out_grad)
 
-            for x, gx in zip(func.inputs, gxs):
-                if x.grad is None:
-                    x.grad = gx
+            for x, gx in zip(inputs, gxs):
+                if x not in grads:
+                    grads[x] = gx
                 else:
-                    x.grad += gx
+                    grads[x] += gx
 
-                if x.creator is not None:
-                    add_cand(x.creator)
+                if x.variable is not None:
+                    x.variable.grad = grads[x]
+
+                if x.creator_node is not None:
+                    add_cand(x.creator_node)
 
             if not retain_grad:
-                for y in func.outputs:
-                    y().grad = None
+                for y in outputs:
+                    grads[y] = None
 
     def to_cpu(self):
         self.data = backend.to_cpu(self.data)
@@ -75,8 +148,7 @@ class Variable(object):
     def transpose(self, *axes):
         if len(axes) == 0:
             axes = None
-        elif len(axes) == 1 and (isinstance(axes[0], (tuple, list)) or
-                                 axes[0] is None):
+        elif len(axes) == 1 and (isinstance(axes[0], (tuple, list)) or axes[0] is None):
             axes = axes[0]
         return chainermin.functions.transpose(self, axes)
 

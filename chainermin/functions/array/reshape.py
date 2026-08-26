@@ -8,7 +8,7 @@ def _count_unknown_dims(shape):
     return cnt
 
 
-class Reshape(function.Function):
+class Reshape(function.FunctionNode):
 
     def __init__(self, shape):
         self.shape = shape
@@ -20,7 +20,7 @@ class Reshape(function.Function):
         self._shape = x.shape
         return x.reshape(self.shape),
 
-    def backward(self, indexes, grad_outputs):
+    def backward(self, inputs, grad_outputs):
         gx, = grad_outputs
         return gx.reshape(self._shape),
 

@@ -1,7 +1,7 @@
 from chainermin import function
 
 
-class MeanSquaredError(function.Function):
+class MeanSquaredError(function.FunctionNode):
 
     def forward(self, inputs):
         y, t = inputs

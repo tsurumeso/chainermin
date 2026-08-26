@@ -6,7 +6,7 @@ from chainermin import variable
 from chainermin import backend
 
 
-class Add(function.Function):
+class Add(function.FunctionNode):
 
     def forward(self, x):
         y = utils.force_array(x[0] + x[1])
@@ -16,7 +16,7 @@ class Add(function.Function):
         return gy[0], gy[0]
 
 
-class AddConstant(function.Function):
+class AddConstant(function.FunctionNode):
 
     def __init__(self, value):
         self.value = value
@@ -35,9 +35,10 @@ def add(lhs, rhs):
     return AddConstant(rhs)(lhs)
 
 
-class Div(function.Function):
+class Div(function.FunctionNode):
 
     def forward(self, x):
+        self.retain_inputs()
         y = utils.force_array(x[0] / x[1])
         return y,
 
@@ -52,12 +53,13 @@ def div(lhs, rhs):
     return MulConstant(1. / rhs)(lhs)
 
 
-class DivFromConstant(function.Function):
+class DivFromConstant(function.FunctionNode):
 
     def __init__(self, value):
         self.value = value
 
     def forward(self, x):
+        self.retain_inputs()
         y = utils.force_array(self.value / x[0])
         return y,
 
@@ -71,9 +73,10 @@ def rdiv(lhs, rhs):
     return DivFromConstant(rhs)(lhs)
 
 
-class Mul(function.Function):
+class Mul(function.FunctionNode):
 
     def forward(self, x):
+        self.retain_inputs()
         y = utils.force_array(x[0] * x[1])
         return y,
 
@@ -81,7 +84,7 @@ class Mul(function.Function):
         return x[1] * gy[0], x[0] * gy[0]
 
 
-class MulConstant(function.Function):
+class MulConstant(function.FunctionNode):
 
     def __init__(self, value):
         self.value = value
@@ -100,9 +103,10 @@ def mul(lhs, rhs):
     return MulConstant(rhs)(lhs)
 
 
-class PowVarVar(function.Function):
+class PowVarVar(function.FunctionNode):
 
     def forward(self, x):
+        self.retain_inputs()
         y = utils.force_array(x[0] ** x[1])
         return y,
 
@@ -113,12 +117,13 @@ class PowVarVar(function.Function):
         return gx0, gx1
 
 
-class PowVarConst(function.Function):
+class PowVarConst(function.FunctionNode):
 
     def __init__(self, value):
         self.value = value
 
     def forward(self, x):
+        self.retain_inputs()
         y = utils.force_array(x[0] ** self.value)
         return y,
 
@@ -133,12 +138,13 @@ def pow(lhs, rhs):
     return PowVarVar()(lhs, rhs)
 
 
-class PowConstVar(function.Function):
+class PowConstVar(function.FunctionNode):
 
     def __init__(self, value):
         self.value = value
 
     def forward(self, x):
+        self.retain_inputs()
         y = utils.force_array(self.value ** x[0])
         return y,
 
@@ -154,7 +160,7 @@ def rpow(lhs, rhs):
     return PowVarVar()(rhs, lhs)
 
 
-class Sub(function.Function):
+class Sub(function.FunctionNode):
 
     def forward(self, x):
         y = utils.force_array(x[0] - x[1])
@@ -164,7 +170,7 @@ class Sub(function.Function):
         return gy[0], -gy[0]
 
 
-class SubConstant(function.Function):
+class SubConstant(function.FunctionNode):
 
     def __init__(self, value):
         self.value = value

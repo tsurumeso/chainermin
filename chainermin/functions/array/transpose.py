@@ -3,7 +3,7 @@ import numpy
 from chainermin import function
 
 
-class Transpose(function.Function):
+class Transpose(function.FunctionNode):
 
     def __init__(self, axes=None):
         self.axes = axes
@@ -12,7 +12,7 @@ class Transpose(function.Function):
         x = inputs[0]
         return x.transpose(self.axes),
 
-    def backward(self, indexes, gy):
+    def backward(self, inputs, gy):
         inv_axes = self.axes
         if inv_axes:
             axes_len = len(inv_axes)

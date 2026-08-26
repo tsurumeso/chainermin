@@ -2,9 +2,10 @@ from chainermin import function
 from chainermin import backend
 
 
-class EmbedIDFunction(function.Function):
+class EmbedIDFunction(function.FunctionNode):
 
     def forward(self, inputs):
+        self.retain_inputs()
         x, W = inputs
         self._w_shape = W.shape
 

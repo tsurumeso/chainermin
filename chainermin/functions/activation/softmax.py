@@ -2,7 +2,7 @@ from chainermin import function
 from chainermin import backend
 
 
-class Softmax(function.Function):
+class Softmax(function.FunctionNode):
 
     def __init__(self, axis=1):
         self.axis = axis

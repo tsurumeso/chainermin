@@ -2,7 +2,7 @@ from chainermin import function
 from chainermin import backend
 
 
-class Sigmoid(function.Function):
+class Sigmoid(function.FunctionNode):
 
     def forward(self, x):
         xp = backend.get_array_module(*x)

@@ -3,9 +3,10 @@ import math
 from chainermin import function
 
 
-class LinearFunction(function.Function):
+class LinearFunction(function.FunctionNode):
 
     def forward(self, inputs):
+        self.retain_inputs()
         x, W, b = inputs[:3]
         y = x.dot(W.T) + b
         return y,

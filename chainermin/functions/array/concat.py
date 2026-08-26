@@ -4,7 +4,7 @@ from chainermin import function
 from chainermin import backend
 
 
-class Concat(function.Function):
+class Concat(function.FunctionNode):
 
     # concat along the channel dimension by default
     def __init__(self, axis=1):
@@ -15,6 +15,7 @@ class Concat(function.Function):
         return xp.concatenate(xs, axis=self.axis),
 
     def backward(self, xs, gy):
+        self.retain_inputs()
         xp = backend.get_array_module(*xs, *gy)
         sizes = xp.array([x.shape[self.axis] for x in xs[:-1]]).cumsum()
         return xp.split(gy[0], sizes, axis=self.axis)

@@ -4,12 +4,13 @@ from chainermin import function
 from chainermin import backend
 
 
-class LayerNormalization(function.Function):
+class LayerNormalization(function.FunctionNode):
 
     def __init__(self, eps=1e-5):
         self.eps = eps
 
     def forward(self, inputs):
+        self.retain_inputs()
         xp = backend.get_array_module(*inputs)
         x, gamma, beta = inputs
         mu = xp.mean(x, axis=1, keepdims=True)

@@ -4,9 +4,10 @@ from chainermin import function
 from chainermin import backend
 
 
-class MatMul(function.Function):
+class MatMul(function.FunctionNode):
 
     def forward(self, x):
+        self.retain_inputs()
         xp = backend.get_array_module(*x)
         a, b = x
         y = xp.matmul(a, b)
@@ -31,9 +32,10 @@ def matmul(a, b):
     return MatMul()(a, b)
 
 
-class BatchMatMul(function.Function):
+class BatchMatMul(function.FunctionNode):
 
     def forward(self, x):
+        self.retain_inputs()
         xp = backend.get_array_module(*x)
         a, b = x
         # np.matmul はバッチ次元に対して行列積を実行

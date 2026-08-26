@@ -3,7 +3,7 @@ from chainermin import function
 from chainermin import backend
 
 
-class Dropout(function.Function):
+class Dropout(function.FunctionNode):
 
     def __init__(self, dropout_ratio):
         self.dropout_ratio = dropout_ratio

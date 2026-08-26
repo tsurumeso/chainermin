@@ -11,9 +11,10 @@ def _log_softmax(x):
     return y - z
 
 
-class SoftmaxCrossEntropy(function.Function):
+class SoftmaxCrossEntropy(function.FunctionNode):
 
     def forward(self, inputs):
+        self.retain_inputs()
         xp = backend.get_array_module(*inputs)
         x, t = inputs
         n_classes = x.shape[1]

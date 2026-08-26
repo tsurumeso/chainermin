@@ -2,7 +2,7 @@ from chainermin import function
 from chainermin import backend
 
 
-class Accuracy(function.Function):
+class Accuracy(function.FunctionNode):
 
     def forward(self, inputs):
         xp = backend.get_array_module(*inputs)

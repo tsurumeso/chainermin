@@ -2,9 +2,10 @@ from chainermin import function
 from chainermin import backend
 
 
-class ReLU(function.Function):
+class ReLU(function.FunctionNode):
 
     def forward(self, x):
+        self.retain_inputs()
         xp = backend.get_array_module(*x)
         return xp.maximum(x[0], 0),
 
