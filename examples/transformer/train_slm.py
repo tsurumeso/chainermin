@@ -111,10 +111,8 @@ class DecoderBlock(chainermin.Chain):
         self.ln2 = L.LayerNormalization(embd_size)
 
     def __call__(self, x, causal_mask):
-        x = self.ln1(x, n_batch_axes=2)
-        x = x + self.sa(x, causal_mask)
-        x = self.ln2(x, n_batch_axes=2)
-        x = x + self.ffwd(x)
+        x = x + self.sa(self.ln1(x, n_batch_axes=2), causal_mask)
+        x = x + self.ffwd(self.ln2(x, n_batch_axes=2))
         return x
 
 
