@@ -137,7 +137,8 @@ class SmallLanguageModel(chainermin.Chain):
     def __call__(self, x, causal_mask):
         # Token + position embeddings
         pos_ids = self.xp.arange(x.shape[1], dtype=np.int32)
-        x = self.tok_embd(x) + self.pos_embd(pos_ids)
+        batched_pos_ids = self.xp.broadcast_to(pos_ids, x.shape)
+        x = self.tok_embd(x) + self.pos_embd(batched_pos_ids)
 
         # Dropout after embeddings
         x = F.dropout(x, ratio=0.1)
@@ -153,11 +154,12 @@ class SmallLanguageModel(chainermin.Chain):
 
 if __name__ == '__main__':
     # Hyperparameters
-    num_layers = 12
-    num_heads = 12
-    context_length = 1024
+    num_layers = 6
+    num_heads = 6
+    context_length = 512
     vocab_size = 1024
-    embd_size = 768
+    embd_size = 384
+    batch_size = 2
 
     model = SmallLanguageModel(
         vocab_size=vocab_size,
@@ -171,9 +173,9 @@ if __name__ == '__main__':
     # model.to_gpu()
 
     # Input: single token sequence (autoregressive)
-    x = model.xp.random.randint(0, vocab_size, size=(1, context_length), dtype=np.int32)
+    x = model.xp.random.randint(0, vocab_size, size=(batch_size, context_length), dtype=np.int32)
     # Target: dummy target for loss computation
-    t = model.xp.random.rand(1, context_length, vocab_size).astype(np.float32)
+    t = model.xp.random.rand(batch_size, context_length, vocab_size).astype(np.float32)
 
     # Causal mask: lower-triangular
     causal_mask = model.xp.tril(model.xp.ones((context_length, context_length), dtype=np.int32))
