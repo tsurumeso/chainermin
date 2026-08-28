@@ -17,16 +17,20 @@ class SoftmaxCrossEntropy(function.FunctionNode):
         self.retain_inputs()
         xp = backend.get_array_module(*inputs)
         x, t = inputs
+        n_batches = x.shape[0]
         n_classes = x.shape[1]
         self.t = xp.array([t == i for i in range(n_classes)]).astype(numpy.int32).T
         self.log_p = _log_softmax(x)
         y = -xp.sum(self.t * self.log_p)
+        y /= n_batches
         return y.reshape(()),
 
     def backward(self, inputs, grad_outputs):
         xp = backend.get_array_module(*inputs, *grad_outputs)
         x, t = inputs
+        n_batches = x.shape[0]
         gx = xp.exp(self.log_p) - self.t
+        gx /= n_batches
         return gx, None
 
 
