@@ -35,6 +35,14 @@ class VariableNode(object):
     def rank(self):
         return self._rank
 
+    @property
+    def grad(self):
+        var = self._variable()
+        if var is not None:
+            return var.grad
+        else:
+            return None
+
     def retain_data(self):
         var = self._variable()
         if var is not None:
@@ -113,7 +121,10 @@ class Variable(object):
 
             for x, gx in zip(inputs, gxs):
                 if x not in grads:
-                    grads[x] = gx
+                    if x.grad is not None:
+                        grads[x] = x.grad + gx
+                    else:
+                        grads[x] = gx
                 else:
                     grads[x] += gx
 
