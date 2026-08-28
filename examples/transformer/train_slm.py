@@ -48,10 +48,10 @@ class MultiHeadAttention(chainermin.Chain):
         self.num_heads = num_heads
         self.head_size = head_size
         # 各ヘッド分の重みを1つの Linear に統合
-        self.key = L.Linear(embd_size, embd_size)
-        self.query = L.Linear(embd_size, embd_size)
-        self.value = L.Linear(embd_size, embd_size)
-        self.proj = L.Linear(embd_size, embd_size)
+        self.key = L.Linear(embd_size, embd_size, nobias=True)
+        self.query = L.Linear(embd_size, embd_size, nobias=True)
+        self.value = L.Linear(embd_size, embd_size, nobias=True)
+        self.proj = L.Linear(embd_size, embd_size, nobias=True)
 
     def __call__(self, x, causal_mask):
         B, T, _ = x.shape
@@ -88,8 +88,8 @@ class FeedForward(chainermin.Chain):
 
     def __init__(self, embd_size):
         super(FeedForward, self).__init__()
-        self.fc1 = L.Linear(embd_size, 4 * embd_size)
-        self.fc2 = L.Linear(4 * embd_size, embd_size)
+        self.fc1 = L.Linear(embd_size, 4 * embd_size, nobias=True)
+        self.fc2 = L.Linear(4 * embd_size, embd_size, nobias=True)
 
     def __call__(self, x):
         x = F.relu(self.fc1(x, n_batch_axes=2))

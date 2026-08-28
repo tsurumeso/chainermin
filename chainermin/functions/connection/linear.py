@@ -7,8 +7,12 @@ class LinearFunction(function.FunctionNode):
 
     def forward(self, inputs):
         self.retain_inputs()
-        x, W, b = inputs[:3]
-        y = x.dot(W.T) + b
+        x = inputs[0]
+        W = inputs[1]
+        y = x.dot(W.T)
+        if len(inputs) == 3:
+            b = inputs[2]
+            y += b
         return y,
 
     def backward(self, inputs, grad_outputs):
@@ -16,11 +20,13 @@ class LinearFunction(function.FunctionNode):
         gy = grad_outputs[0]
         gx = gy.dot(W).reshape(x.shape)
         gW = gy.T.dot(x)
-        gb = gy.sum(axis=0)
-        return gx, gW, gb
+        if len(inputs) == 3:
+            gb = gy.sum(axis=0)
+            return gx, gW, gb
+        return gx, gW
 
 
-def linear(x, W, b, n_batch_axes=1):
+def linear(x, W, b=None, n_batch_axes=1):
     if n_batch_axes <= 0:
         raise ValueError('n_batch_axes should be greater than 0.')
     if n_batch_axes > 1:
@@ -30,7 +36,12 @@ def linear(x, W, b, n_batch_axes=1):
     elif x.ndim > 2:
         x = x.reshape(x.shape[0], -1)
 
-    y = LinearFunction()(x, W, b)
+    if b is None:
+        args = x, W
+    else:
+        args = x, W, b
+
+    y = LinearFunction()(*args)
     if n_batch_axes > 1:
         y = y.reshape(batch_shape + (-1,))
     return y
