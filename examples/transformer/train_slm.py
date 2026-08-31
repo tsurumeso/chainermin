@@ -1,9 +1,15 @@
 import numpy as np
 import time
+import glob
+import sys
+import math
 
 import chainermin
 import chainermin.functions as F
 import chainermin.links as L
+from chainermin import optimizers
+
+import tokenizer
 
 
 # class AttentionHead(chainermin.Chain):
@@ -151,18 +157,98 @@ class SmallLanguageModel(chainermin.Chain):
         x = self.ln(x, n_batch_axes=2)
         return self.lm_head(x, n_batch_axes=2)
 
+    def generate(self, start_tokens, temperature=1.0, top_k=10):
+        # (1, T) の形状に変換
+        curr_x = self.xp.array(start_tokens, dtype=np.int32)[None, :]
+
+        # context_length を超えないように末尾をクロップ
+        x_crop = curr_x[:, -self.context_length:]
+
+        # 現在の系列長に応じた Causal Mask を作成
+        T = x_crop.shape[1]
+        causal_mask = self.xp.tril(self.xp.ones((T, T), dtype=np.int32))
+        logits = self(x_crop, causal_mask)
+
+        # 最後のステップの Logits を取得
+        logits = logits.data
+        next_token_logits = logits[:, -1, :]
+
+        # Temperature スケーリング
+        if temperature != 1.0:
+            next_token_logits = next_token_logits / temperature
+
+        # Top-K サンプリング
+        if top_k is not None:
+            indices_to_remove = next_token_logits < self.xp.sort(next_token_logits, axis=-1)[:, -top_k:][:, 0:1]
+            next_token_logits[indices_to_remove] = -np.inf
+
+        probs = F.softmax(next_token_logits, axis=-1).data
+        next_token_id = self.xp.random.choice(len(probs[0]), size=1, p=probs[0])
+
+        # 生成されたトークンを結合
+        next_token = next_token_id.reshape(1, 1).astype(np.int32)
+        curr_x = self.xp.concatenate([curr_x, next_token], axis=1)
+
+        # (T_new,) の 1D 配列を返す
+        return curr_x[0]
+
+
+def get_batch(dataset, batch_size, context_length):
+    idx = np.random.randint(0, len(dataset) - context_length - 1, size=batch_size)
+    x = np.stack([dataset[i : i + context_length] for i in idx])
+    y = np.stack([dataset[i + 1 : i + context_length + 1] for i in idx])
+    return x, y
+
+
+# learning rate decay scheduler (cosine with warmup)
+def get_lr(it, max_lr, min_lr, warmup_iters, lr_decay_iters):
+    # 1) linear warmup for warmup_iters steps
+    if it < warmup_iters:
+        return max_lr * (it + 1) / (warmup_iters + 1)
+    # 2) if it > lr_decay_iters, return min learning rate
+    if it > lr_decay_iters:
+        return min_lr
+    # 3) in between, use cosine decay down to min learning rate
+    decay_ratio = (it - warmup_iters) / (lr_decay_iters - warmup_iters)
+    assert 0 <= decay_ratio <= 1
+    # coeff ranges 0..1
+    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))
+    return min_lr + coeff * (max_lr - min_lr)
+
 
 if __name__ == '__main__':
     # Hyperparameters
-    num_layers = 6
-    num_heads = 6
+    num_layers = 12
+    num_heads = 12
     context_length = 512
-    vocab_size = 1024
-    embd_size = 384
-    batch_size = 2
+    embd_size = 768
+
+    batch_size = 8
+    accumulation_steps = 8
+    start_iter = 0
+    max_iters = 10000
+    eval_iters = 10
+    eval_interval = 10
+    max_lr = 3e-4
+    min_lr = 3e-5
+    warmup_iters = 100
+    lr_decay_iters = 10000
+
+    dataset = []
+    files = glob.glob("examples/transformer/dataset/**/*.txt", recursive=True)
+    for file in files:
+        with open(file, "r", encoding="utf-8") as f:
+            dataset.append(f.read())
+
+    dataset = "\n".join(dataset)
+    tokenizer = tokenizer.MeCabTokenizer()
+    tokenizer.fit(dataset)
+    dataset = tokenizer.encode(dataset)
+
+    print(f"Vocabulary size: {tokenizer.vocab_size}")
 
     model = SmallLanguageModel(
-        vocab_size=vocab_size,
+        vocab_size=tokenizer.vocab_size,
         context_length=context_length,
         num_layers=num_layers,
         num_heads=num_heads,
@@ -170,33 +256,82 @@ if __name__ == '__main__':
     )
 
     # Move model parameters to GPU
-    # model.to_gpu()
+    model.to_gpu()
+    # model.load_npz("examples/transformer/best_model_params.npz")
 
-    # Input: single token sequence (autoregressive)
-    x = model.xp.random.randint(0, vocab_size, size=(batch_size, context_length), dtype=np.int32)
-    # Target: dummy target for loss computation
-    t = model.xp.random.rand(batch_size, context_length, vocab_size).astype(np.float32)
+    optimizer = optimizers.AdamW(alpha=max_lr)
+    optimizer.setup(model)
 
-    # Causal mask: lower-triangular
+    # Causal Mask: lower-triangular
     causal_mask = model.xp.tril(model.xp.ones((context_length, context_length), dtype=np.int32))
 
-    for _ in range(10):
-        # Training mode: dropout active, graph built
-        start = time.perf_counter()
-        out = model(x, causal_mask)
-        end = time.perf_counter()
-        print("Training forward: {:.4f}s".format(end - start))
-
-        start = time.perf_counter()
-        loss = F.mean_squared_error(out, t)
-        loss.backward()
+    best_loss = np.inf
+    for it in range(start_iter, max_iters):
+        sum_loss = 0
+        lr = get_lr(it, max_lr, min_lr, warmup_iters, lr_decay_iters)
+        optimizer.alpha = lr
         model.zerograds()
-        end = time.perf_counter()
-        print("Training backward: {:.4f}s".format(end - start))
+        for j in range(accumulation_steps):
+            x, t = get_batch(dataset, batch_size, context_length)
+            x = model.xp.array(x)
+            t = model.xp.array(t)
 
-        # Inference: dropout disabled, no graph
-        start = time.perf_counter()
-        with chainermin.inference_mode():
-            out = model(x, causal_mask)
-        end = time.perf_counter()
-        print("Inference forward: {:.4f}s".format(end - start))
+            y = model(x, causal_mask)
+            y_flat = y.reshape(-1, tokenizer.vocab_size)
+            t_flat = t.reshape(-1)
+
+            loss = F.softmax_cross_entropy(y_flat, t_flat)
+            loss /= accumulation_steps
+            loss.backward()
+
+            sum_loss += loss.data
+
+        optimizer.update()
+        print(f"Iteration {it + 1}, Loss: {sum_loss:.4f}, Learning Rate: {lr:.6f}")
+
+        if it != 0 and (it + 1) % eval_interval == 0:
+            # Inference: dropout disabled, no graph
+            with chainermin.inference_mode():
+                eval_loss = 0
+                for j in range(eval_iters):
+                    x, t = get_batch(dataset, batch_size, context_length)
+                    x = model.xp.array(x)
+                    t = model.xp.array(t)
+
+                    y = model(x, causal_mask)
+                    y_flat = y.reshape(-1, tokenizer.vocab_size)
+                    t_flat = t.reshape(-1)
+
+                    loss = F.softmax_cross_entropy(y_flat, t_flat)
+
+                    eval_loss += loss.data
+
+                eval_loss /= eval_iters
+                if eval_loss < best_loss:
+                    best_loss = eval_loss
+                    model.save_npz("examples/transformer/best_model_params.npz")
+                    print(f"New best model saved with loss: {best_loss:.4f}")
+
+                # プロンプトとして学習データの先頭Nトークンを使用して逐次生成を試す
+                prompt_length = 128
+                prompt = x[0, :prompt_length]
+
+                prompt = chainermin.backend.to_cpu(prompt)
+                generated_text = tokenizer.decode(prompt)
+                sys.stdout.write(f"[Prompt]     : {generated_text}\n")
+                sys.stdout.write(f"[Generated]  : ")
+                sys.stdout.flush()
+
+                for _ in range(context_length - prompt_length):
+                    prompt = model.generate(
+                        start_tokens=prompt,
+                        temperature=1.0,
+                        top_k=10
+                    )
+
+                    generated_text = tokenizer.decode([prompt[-1].item()])
+                    sys.stdout.write(generated_text)
+                    sys.stdout.flush()
+
+            sys.stdout.write("\n")
+            sys.stdout.flush()

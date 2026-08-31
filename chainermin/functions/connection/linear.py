@@ -9,7 +9,7 @@ class LinearFunction(function.FunctionNode):
         self.retain_inputs()
         x = inputs[0]
         W = inputs[1]
-        y = x.dot(W.T)
+        y = x.dot(W.T).astype(x.dtype, copy=False)
         if len(inputs) == 3:
             b = inputs[2]
             y += b
@@ -18,8 +18,8 @@ class LinearFunction(function.FunctionNode):
     def backward(self, inputs, grad_outputs):
         x, W = inputs[:2]
         gy = grad_outputs[0]
-        gx = gy.dot(W).reshape(x.shape)
-        gW = gy.T.dot(x)
+        gx = gy.dot(W).astype(x.dtype, copy=False)
+        gW = gy.T.dot(x).astype(W.dtype, copy=False)
         if len(inputs) == 3:
             gb = gy.sum(axis=0)
             return gx, gW, gb

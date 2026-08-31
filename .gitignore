@@ -1,6 +1,8 @@
 *~
 *.mat
 *.pyc
+*.txt
+*.npz
 build
 chainermin.egg-info/
 dist/
