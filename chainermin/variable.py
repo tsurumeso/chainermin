@@ -1,12 +1,10 @@
-import queue
 import weakref
 
 import chainermin
 from chainermin import backend
 
 
-class VariableNode(object):
-
+class VariableNode:
     def __init__(self, variable):
         self._variable = weakref.ref(variable)
         self._data = None
@@ -48,11 +46,10 @@ class VariableNode(object):
         if var is not None:
             self._data = var.data
         else:
-            raise RuntimeError('cannot retain variable data: the variable has been already released')
+            raise RuntimeError("cannot retain variable data: the variable has been already released")
 
 
-class Variable(object):
-
+class Variable:
     def __init__(self, data, grad=None):
         self._data = data
         self._node = VariableNode(self)

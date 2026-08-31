@@ -1,5 +1,4 @@
-class Optimizer(object):
-
+class Optimizer:
     def setup(self, link):
         self.target = link
         self.t = 0

@@ -1,16 +1,14 @@
-import numpy as np
-import time
 import glob
-import sys
 import math
+import sys
+
+import numpy as np
+import tokenizer
 
 import chainermin
 import chainermin.functions as F
 import chainermin.links as L
 from chainermin import optimizers
-
-import tokenizer
-
 
 # class AttentionHead(chainermin.Chain):
 #     """Single causal self-attention head."""
@@ -50,7 +48,7 @@ class MultiHeadAttention(chainermin.Chain):
     """Multi-head causal self-attention (single matmul formulation)."""
 
     def __init__(self, num_heads, embd_size, head_size):
-        super(MultiHeadAttention, self).__init__()
+        super().__init__()
         self.num_heads = num_heads
         self.head_size = head_size
         # 各ヘッド分の重みを1つの Linear に統合
@@ -66,7 +64,7 @@ class MultiHeadAttention(chainermin.Chain):
         d = self.head_size
 
         # (B, T, H*d) = (B, T, embd_size)
-        q = self.query(x, n_batch_axes=2)  
+        q = self.query(x, n_batch_axes=2)
         k = self.key(x, n_batch_axes=2)
         v = self.value(x, n_batch_axes=2)
 
@@ -94,7 +92,7 @@ class FeedForward(chainermin.Chain):
     """A simple linear layer followed by a non-linearity."""
 
     def __init__(self, embd_size):
-        super(FeedForward, self).__init__()
+        super().__init__()
         self.fc1 = L.Linear(embd_size, 4 * embd_size, nobias=True)
         self.fc2 = L.Linear(4 * embd_size, embd_size, nobias=True)
 
@@ -109,7 +107,7 @@ class DecoderBlock(chainermin.Chain):
     """Decoder block: causal self-attention followed by feed-forward."""
 
     def __init__(self, num_heads, embd_size):
-        super(DecoderBlock, self).__init__()
+        super().__init__()
         head_size = embd_size // num_heads
         assert head_size * num_heads == embd_size, "embd_size must be divisible by num_heads"
         self.sa = MultiHeadAttention(num_heads, embd_size, head_size)
@@ -127,7 +125,7 @@ class SmallLanguageModel(chainermin.Chain):
     """GPT-style small language model."""
 
     def __init__(self, vocab_size, context_length, num_layers, num_heads, embd_size):
-        super(SmallLanguageModel, self).__init__()
+        super().__init__()
         self.tok_embd = L.EmbedID(vocab_size, embd_size)
         self.pos_embd = L.EmbedID(context_length, embd_size)
         for idx in range(num_layers):
@@ -162,7 +160,7 @@ class SmallLanguageModel(chainermin.Chain):
         curr_x = self.xp.array(start_tokens, dtype=np.int32)[None, :]
 
         # context_length を超えないように末尾をクロップ
-        x_crop = curr_x[:, -self.context_length:]
+        x_crop = curr_x[:, -self.context_length :]
 
         # 現在の系列長に応じた Causal Mask を作成
         T = x_crop.shape[1]
@@ -216,7 +214,7 @@ def get_lr(it, max_lr, min_lr, warmup_iters, lr_decay_iters):
     return min_lr + coeff * (max_lr - min_lr)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Hyperparameters
     num_layers = 12
     num_heads = 12
@@ -252,7 +250,7 @@ if __name__ == '__main__':
         context_length=context_length,
         num_layers=num_layers,
         num_heads=num_heads,
-        embd_size=embd_size
+        embd_size=embd_size,
     )
 
     # Move model parameters to GPU
@@ -318,15 +316,11 @@ if __name__ == '__main__':
 
                 prompt_text = tokenizer.decode(chainermin.backend.to_cpu(prompt))
                 sys.stdout.write(f"[Prompt]     : {prompt_text}\n")
-                sys.stdout.write(f"[Generated]  : ")
+                sys.stdout.write("[Generated]  : ")
                 sys.stdout.flush()
 
                 for _ in range(context_length - prompt_length):
-                    prompt = model.generate(
-                        start_tokens=prompt,
-                        temperature=1.0,
-                        top_k=10
-                    )
+                    prompt = model.generate(start_tokens=prompt, temperature=1.0, top_k=10)
 
                     generated_text = tokenizer.decode([prompt[-1].item()])
                     sys.stdout.write(generated_text)

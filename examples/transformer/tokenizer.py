@@ -1,7 +1,7 @@
-import MeCab
-import ipadic
-import numpy as np
 import collections
+
+import ipadic
+import MeCab
 
 
 class MeCabTokenizer:
@@ -23,7 +23,7 @@ class MeCabTokenizer:
         token_counts = collections.Counter({k: v for k, v in token_counts.items() if v >= min_count})
 
         # 2. コーパスに含まれる「すべての単文字」を抽出 (未知語対策)
-        unique_chars = sorted(list(set(corpus_text)))
+        unique_chars = sorted(set(corpus_text))
         print(len(corpus_text), "characters in corpus.")
         print(len(unique_chars), "unique characters found in corpus.")
         print(len(token_counts), "unique vocabularies found in corpus.")

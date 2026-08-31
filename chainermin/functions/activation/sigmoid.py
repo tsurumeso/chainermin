@@ -1,16 +1,14 @@
-from chainermin import function
-from chainermin import backend
+from chainermin import backend, function
 
 
 class Sigmoid(function.FunctionNode):
-
     def forward(self, x):
         xp = backend.get_array_module(*x)
         self.y = xp.tanh(x[0] * 0.5) * 0.5 + 0.5
-        return self.y,
+        return (self.y,)
 
     def backward(self, x, gy):
-        return gy[0] * self.y * (1 - self.y),
+        return (gy[0] * self.y * (1 - self.y),)
 
 
 def sigmoid(x):

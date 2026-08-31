@@ -1,12 +1,9 @@
 import numpy
 
-from chainermin import initializers
-from chainermin import variable
-from chainermin import backend
+from chainermin import backend, initializers, variable
 
 
-class Link(object):
-
+class Link:
     def __init__(self, **params):
         self._params = []
         self._xp = numpy
@@ -33,7 +30,7 @@ class Link(object):
 
     def namedparams(self):
         for name in self._params:
-            yield '/' + name, self.__dict__[name]
+            yield "/" + name, self.__dict__[name]
 
     def zerograds(self):
         for param in self.params():
@@ -55,9 +52,8 @@ class Link(object):
 
 
 class Chain(Link):
-
     def __init__(self, **links):
-        super(Chain, self).__init__()
+        super().__init__()
         self._children = []
         for name, link in links.items():
             self._children.append(name)
@@ -67,40 +63,39 @@ class Chain(Link):
         if isinstance(value, Link):
             value.name = name
             self._children.append(name)
-        super(Chain, self).__setattr__(name, value)
+        super().__setattr__(name, value)
 
     def params(self):
         for name in self._children:
-            for param in self.__dict__[name].params():
-                yield param
+            yield from self.__dict__[name].params()
 
     def namedparams(self):
         for name in self._children:
-            prefix = '/' + name
+            prefix = "/" + name
             for path, param in self.__dict__[name].namedparams():
                 yield prefix + path, param
 
     def zerograds(self):
-        super(Chain, self).zerograds()
+        super().zerograds()
         for name in self._children:
             self.__dict__[name].zerograds()
 
     def to_cpu(self):
-        super(Chain, self).to_cpu()
+        super().to_cpu()
         for name in self._children:
             self.__dict__[name].to_cpu()
 
     def to_gpu(self):
-        super(Chain, self).to_gpu()
+        super().to_gpu()
         for name in self._children:
             self.__dict__[name].to_gpu()
 
     def save_npz(self, filename):
         params_dict = {}
         for path, param in self.namedparams():
-            key = path.lstrip('/')
+            key = path.lstrip("/")
             data = param.data
-            if hasattr(data, 'get'):
+            if hasattr(data, "get"):
                 data = data.get()
             params_dict[key] = data
 
@@ -109,7 +104,7 @@ class Chain(Link):
     def load_npz(self, filename):
         with numpy.load(filename) as f:
             for path, param in self.namedparams():
-                key = path.lstrip('/')
+                key = path.lstrip("/")
                 if key in f:
                     loaded_data = f[key]
                     param.data = self._xp.array(loaded_data)

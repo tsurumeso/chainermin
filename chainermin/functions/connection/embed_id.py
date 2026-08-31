@@ -1,15 +1,13 @@
-from chainermin import function
-from chainermin import backend
+from chainermin import backend, function
 
 
 class EmbedIDFunction(function.FunctionNode):
-
     def forward(self, inputs):
         self.retain_inputs()
         x, W = inputs
         self._w_shape = W.shape
 
-        return W[x],
+        return (W[x],)
 
     def backward(self, inputs, grad_outputs):
         xp = backend.get_array_module(*inputs, *grad_outputs)
@@ -22,10 +20,9 @@ class EmbedIDFunction(function.FunctionNode):
         for ix, igy in zip(x.ravel(), gy.reshape(x.size, -1)):
             gW[ix] += igy
 
-        return gW,
+        return (gW,)
 
 
 def embed_id(x, W):
-    """Efficient linear function for one-hot input.
-    """
+    """Efficient linear function for one-hot input."""
     return EmbedIDFunction()(x, W)

@@ -9,23 +9,21 @@ def _count_unknown_dims(shape):
 
 
 class Reshape(function.FunctionNode):
-
     def __init__(self, shape):
         self.shape = shape
         self._cnt = _count_unknown_dims(shape)
         assert self._cnt <= 1
 
     def forward(self, inputs):
-        x, = inputs
+        (x,) = inputs
         self._shape = x.shape
-        return x.reshape(self.shape),
+        return (x.reshape(self.shape),)
 
     def backward(self, inputs, grad_outputs):
-        gx, = grad_outputs
-        return gx.reshape(self._shape),
+        (gx,) = grad_outputs
+        return (gx.reshape(self._shape),)
 
 
 def reshape(x, shape):
-    """Reshapes an input variable without copy.
-    """
+    """Reshapes an input variable without copy."""
     return Reshape(shape)(x)

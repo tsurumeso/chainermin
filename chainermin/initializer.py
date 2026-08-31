@@ -1,8 +1,7 @@
 import numpy
 
 
-class Initializer(object):
-
+class Initializer:
     def __init__(self, dtype=None):
         self.dtype = dtype
 
@@ -12,10 +11,10 @@ class Initializer(object):
 
 def get_fans(shape):
     if not isinstance(shape, tuple):
-        raise ValueError('shape must be tuple')
+        raise TypeError("shape must be tuple")
 
     if len(shape) < 2:
-        raise ValueError('shape must be of length >= 2: shape={}', shape)
+        raise ValueError("shape must be of length >= 2: shape={}", shape)
 
     fan_in = numpy.prod(shape[1:])
     fan_out = shape[0]

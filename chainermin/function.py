@@ -1,15 +1,11 @@
 import weakref
 
-from chainermin import config
-from chainermin import variable
+from chainermin import config, variable
 
 
-class FunctionNode(object):
-
+class FunctionNode:
     def __call__(self, *inputs):
-        inputs = [x if isinstance(x, variable.Variable)
-                  else variable.Variable(x)
-                  for x in inputs]
+        inputs = [x if isinstance(x, variable.Variable) else variable.Variable(x) for x in inputs]
         in_data = [x.data for x in inputs]
 
         self._retain_inputs = False

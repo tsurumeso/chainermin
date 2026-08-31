@@ -1,32 +1,28 @@
 import numpy
 
-from chainermin import function
-from chainermin import utils
-from chainermin import variable
-from chainermin import backend
+import chainermin
+from chainermin import backend, function, utils, variable
 
 
 class Add(function.FunctionNode):
-
     def forward(self, x):
         y = utils.force_array(x[0] + x[1])
-        return y,
+        return (y,)
 
     def backward(self, x, gy):
         return gy[0], gy[0]
 
 
 class AddConstant(function.FunctionNode):
-
     def __init__(self, value):
         self.value = value
 
     def forward(self, x):
         y = utils.force_array(x[0] + self.value)
-        return y,
+        return (y,)
 
     def backward(self, x, gy):
-        return gy[0],
+        return (gy[0],)
 
 
 def add(lhs, rhs):
@@ -36,11 +32,10 @@ def add(lhs, rhs):
 
 
 class Div(function.FunctionNode):
-
     def forward(self, x):
         self.retain_inputs()
         y = utils.force_array(x[0] / x[1])
-        return y,
+        return (y,)
 
     def backward(self, x, gy):
         gx0 = gy[0] / x[1]
@@ -50,18 +45,17 @@ class Div(function.FunctionNode):
 def div(lhs, rhs):
     if isinstance(rhs, variable.Variable):
         return Div()(lhs, rhs)
-    return MulConstant(1. / rhs)(lhs)
+    return MulConstant(1.0 / rhs)(lhs)
 
 
 class DivFromConstant(function.FunctionNode):
-
     def __init__(self, value):
         self.value = value
 
     def forward(self, x):
         self.retain_inputs()
         y = utils.force_array(self.value / x[0])
-        return y,
+        return (y,)
 
     def backward(self, x, gy):
         return -self.value * gy[0] / (x[0] ** 2)
@@ -74,27 +68,25 @@ def rdiv(lhs, rhs):
 
 
 class Mul(function.FunctionNode):
-
     def forward(self, x):
         self.retain_inputs()
         y = utils.force_array(x[0] * x[1])
-        return y,
+        return (y,)
 
     def backward(self, x, gy):
         return x[1] * gy[0], x[0] * gy[0]
 
 
 class MulConstant(function.FunctionNode):
-
     def __init__(self, value):
         self.value = value
 
     def forward(self, x):
         y = utils.force_array(x[0] * self.value)
-        return y,
+        return (y,)
 
     def backward(self, x, gy):
-        return self.value * gy[0],
+        return (self.value * gy[0],)
 
 
 def mul(lhs, rhs):
@@ -104,11 +96,10 @@ def mul(lhs, rhs):
 
 
 class PowVarVar(function.FunctionNode):
-
     def forward(self, x):
         self.retain_inputs()
         y = utils.force_array(x[0] ** x[1])
-        return y,
+        return (y,)
 
     def backward(self, x, gy):
         xp = backend.get_array_module(*x)
@@ -118,18 +109,17 @@ class PowVarVar(function.FunctionNode):
 
 
 class PowVarConst(function.FunctionNode):
-
     def __init__(self, value):
         self.value = value
 
     def forward(self, x):
         self.retain_inputs()
         y = utils.force_array(x[0] ** self.value)
-        return y,
+        return (y,)
 
     def backward(self, x, gy):
         gx0 = gy[0] * self.value * x[0] ** (self.value - 1)
-        return gx0,
+        return (gx0,)
 
 
 def pow(lhs, rhs):
@@ -139,19 +129,18 @@ def pow(lhs, rhs):
 
 
 class PowConstVar(function.FunctionNode):
-
     def __init__(self, value):
         self.value = value
 
     def forward(self, x):
         self.retain_inputs()
         y = utils.force_array(self.value ** x[0])
-        return y,
+        return (y,)
 
     def backward(self, x, gy):
         xp = backend.get_array_module(*x)
         gx0 = gy[1] * xp.log(self.value) * self.value ** x[0]
-        return gx0,
+        return (gx0,)
 
 
 def rpow(lhs, rhs):
@@ -161,26 +150,24 @@ def rpow(lhs, rhs):
 
 
 class Sub(function.FunctionNode):
-
     def forward(self, x):
         y = utils.force_array(x[0] - x[1])
-        return y,
+        return (y,)
 
     def backward(self, x, gy):
         return gy[0], -gy[0]
 
 
 class SubConstant(function.FunctionNode):
-
     def __init__(self, value):
         self.value = value
 
     def forward(self, x):
         y = utils.force_array(x[0] - self.value)
-        return y,
+        return (y,)
 
     def backward(self, x, gy):
-        return gy[0],
+        return (gy[0],)
 
 
 def sub(lhs, rhs):

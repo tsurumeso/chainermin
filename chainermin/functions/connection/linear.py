@@ -4,7 +4,6 @@ from chainermin import function
 
 
 class LinearFunction(function.FunctionNode):
-
     def forward(self, inputs):
         self.retain_inputs()
         x = inputs[0]
@@ -13,7 +12,7 @@ class LinearFunction(function.FunctionNode):
         if len(inputs) == 3:
             b = inputs[2]
             y += b
-        return y,
+        return (y,)
 
     def backward(self, inputs, grad_outputs):
         x, W = inputs[:2]
@@ -28,7 +27,7 @@ class LinearFunction(function.FunctionNode):
 
 def linear(x, W, b=None, n_batch_axes=1):
     if n_batch_axes <= 0:
-        raise ValueError('n_batch_axes should be greater than 0.')
+        raise ValueError("n_batch_axes should be greater than 0.")
     if n_batch_axes > 1:
         batch_shape = x.shape[:n_batch_axes]
         batch_size = math.prod(batch_shape)
