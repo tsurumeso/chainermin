@@ -2,9 +2,11 @@ from chainermin.functions.activation.relu import relu  # NOQA
 from chainermin.functions.activation.sigmoid import sigmoid  # NOQA
 from chainermin.functions.activation.softmax import softmax  # NOQA
 
+from chainermin.functions.array.cast import cast  # NOQA
 from chainermin.functions.array.concat import concat  # NOQA
 from chainermin.functions.array.reshape import reshape  # NOQA
 from chainermin.functions.array.transpose import transpose  # NOQA
+from chainermin.functions.array.where import where  # NOQA
 
 from chainermin.functions.connection.embed_id import embed_id  # NOQA
 from chainermin.functions.connection.linear import linear  # NOQA
