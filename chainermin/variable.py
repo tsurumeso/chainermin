@@ -46,7 +46,9 @@ class VariableNode:
         if var is not None:
             self._data = var.data
         else:
-            raise RuntimeError("cannot retain variable data: the variable has been already released")
+            raise RuntimeError(
+                "cannot retain variable data: the variable has been already released"
+            )
 
 
 class Variable:

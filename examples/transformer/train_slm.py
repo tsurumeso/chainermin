@@ -177,7 +177,9 @@ class SmallLanguageModel(chainermin.Chain):
 
         # Top-K サンプリング
         if top_k is not None:
-            indices_to_remove = next_token_logits < self.xp.sort(next_token_logits, axis=-1)[:, -top_k:][:, 0:1]
+            indices_to_remove = (
+                next_token_logits < self.xp.sort(next_token_logits, axis=-1)[:, -top_k:][:, 0:1]
+            )
             next_token_logits[indices_to_remove] = -np.inf
 
         probs = F.softmax(next_token_logits, axis=-1).data

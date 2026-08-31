@@ -20,7 +20,9 @@ class MeCabTokenizer:
         # 1. コーパス全体の単語の出現頻度をカウント
         tokens = self.tokenize(corpus_text)
         token_counts = collections.Counter(tokens)
-        token_counts = collections.Counter({k: v for k, v in token_counts.items() if v >= min_count})
+        token_counts = collections.Counter(
+            {k: v for k, v in token_counts.items() if v >= min_count}
+        )
 
         # 2. コーパスに含まれる「すべての単文字」を抽出 (未知語対策)
         unique_chars = sorted(set(corpus_text))

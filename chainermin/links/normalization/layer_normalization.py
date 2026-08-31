@@ -21,4 +21,6 @@ class LayerNormalization(link.Link):
         self.add_param("beta", size, initializer=self._beta_initializer)
 
     def __call__(self, x, n_batch_axes=1):
-        return layer_normalization.layer_normalization(x, self.gamma, self.beta, self.eps, n_batch_axes=n_batch_axes)
+        return layer_normalization.layer_normalization(
+            x, self.gamma, self.beta, self.eps, n_batch_axes=n_batch_axes
+        )
