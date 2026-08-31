@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='chainermin',
-    version='1.2.0',
+    version='2.0.0',
     author='tsurumeso',
     license='MIT License',
     packages=['chainermin',
