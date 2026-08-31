@@ -9,7 +9,10 @@ from chainermin import optimizers
 
 class MLP(chainermin.Chain):
     def __init__(self, n_units):
-        super().__init__(l1=L.Linear(784, n_units), l2=L.Linear(n_units, n_units), l3=L.Linear(n_units, 10))
+        super().__init__()
+        self.l1 = L.Linear(784, n_units)
+        self.l2 = L.Linear(n_units, n_units)
+        self.l3 = L.Linear(n_units, 10)
 
     def __call__(self, x, t):
         h = F.dropout(F.relu(self.l1(x)))
