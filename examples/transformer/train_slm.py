@@ -54,29 +54,30 @@ class MultiHeadAttention(chainermin.Chain):
         self.proj = L.Linear(embd_size, embd_size, nobias=True)
 
     def __call__(self, x, causal_mask):
+        dtype = x.data.dtype
         B, T, _ = x.shape
         H = self.num_heads
         d = self.head_size
 
-        # (B, T, H*d)
+        # (B, T, H*d) = (B, T, embd_size)
         q = self.query(x, n_batch_axes=2)  
         k = self.key(x, n_batch_axes=2)
         v = self.value(x, n_batch_axes=2)
 
-        # (B, T, H, d) → (B, H, T, d)
+        # (B, T, H, d) -> (B, H, T, d)
         q = q.reshape(B, T, H, d).transpose(0, 2, 1, 3)
         k = k.reshape(B, T, H, d).transpose(0, 2, 1, 3)
         v = v.reshape(B, T, H, d).transpose(0, 2, 1, 3)
 
-        # (B, H, T, d) @ (B, H, d, T) → (B, H, T, T)
-        attn = F.batch_matmul(q, k.transpose(0, 1, 3, 2)) / np.sqrt(d)
-        attn = attn * causal_mask - (1.0 - causal_mask) * 1e+9
+        # (B, H, T, d) @ (B, H, d, T) -> (B, H, T, T)
+        attn = F.batch_matmul(q, k.transpose(0, 1, 3, 2)) / np.sqrt(d, dtype=dtype)
+        attn = F.where(causal_mask[None, None, :, :] == 0, -np.inf, attn)
         attn = F.softmax(attn, axis=-1)
 
-        # (B, H, T, T) @ (B, H, T, d) → (B, H, T, d)
+        # (B, H, T, T) @ (B, H, T, d) -> (B, H, T, d)
         out = F.batch_matmul(attn, v)
 
-        # (B, H, T, d) → (B, T, H*d) = (B, T, embd_size)
+        # (B, H, T, d) -> (B, T, H*d) = (B, T, embd_size)
         out = out.transpose(0, 2, 1, 3).reshape(B, T, -1)
         out = self.proj(out, n_batch_axes=2)
         out = F.dropout(out, ratio=0.1)
@@ -131,6 +132,7 @@ class SmallLanguageModel(chainermin.Chain):
         self.lm_head = L.Linear(embd_size, vocab_size)
 
         self.num_layers = num_layers
+        self.context_length = context_length
 
     def __call__(self, x, causal_mask):
         # Token + position embeddings
