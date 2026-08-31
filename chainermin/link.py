@@ -94,3 +94,24 @@ class Chain(Link):
         super(Chain, self).to_gpu()
         for name in self._children:
             self.__dict__[name].to_gpu()
+
+    def save_npz(self, filename):
+        params_dict = {}
+        for path, param in self.namedparams():
+            key = path.lstrip('/')
+            data = param.data
+            if hasattr(data, 'get'):
+                data = data.get()
+            params_dict[key] = data
+
+        numpy.savez(filename, **params_dict)
+
+    def load_npz(self, filename):
+        with numpy.load(filename) as f:
+            for path, param in self.namedparams():
+                key = path.lstrip('/')
+                if key in f:
+                    loaded_data = f[key]
+                    param.data = self._xp.array(loaded_data)
+                else:
+                    print(f"Warning: {key} not found in {filename}")
