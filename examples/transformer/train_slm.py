@@ -124,7 +124,7 @@ class DecoderBlock(chainermin.Chain):
 
 
 class SmallLanguageModel(chainermin.Chain):
-    """Decoder-only autoregressive Transformer (GPT-style)."""
+    """GPT-style small language model."""
 
     def __init__(self, vocab_size, context_length, num_layers, num_heads, embd_size):
         super(SmallLanguageModel, self).__init__()
@@ -316,9 +316,8 @@ if __name__ == '__main__':
                 prompt_length = 128
                 prompt = x[0, :prompt_length]
 
-                prompt = chainermin.backend.to_cpu(prompt)
-                generated_text = tokenizer.decode(prompt)
-                sys.stdout.write(f"[Prompt]     : {generated_text}\n")
+                prompt_text = tokenizer.decode(chainermin.backend.to_cpu(prompt))
+                sys.stdout.write(f"[Prompt]     : {prompt_text}\n")
                 sys.stdout.write(f"[Generated]  : ")
                 sys.stdout.flush()
 
@@ -333,5 +332,5 @@ if __name__ == '__main__':
                     sys.stdout.write(generated_text)
                     sys.stdout.flush()
 
-            sys.stdout.write("\n")
-            sys.stdout.flush()
+                sys.stdout.write("\n")
+                sys.stdout.flush()
