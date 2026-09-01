@@ -29,4 +29,5 @@ dev = [
     "pandas>=3.0.5",
     "ruff>=0.16.5",
     "scikit-learn>=1.9.0",
+    "sentencepiece>=0.2.2",
 ]

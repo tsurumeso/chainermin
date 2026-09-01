@@ -1,16 +1,22 @@
 import collections
+import json
 
 import ipadic
 import MeCab
+import sentencepiece
 
 
 class MeCabTokenizer:
-    def __init__(self):
+    def __init__(self, model_path=None):
         mecab_args = f"-Owakati {ipadic.MECAB_ARGS}"
         # -Owakati オプションで分かち書きモードにする
         self.tagger = MeCab.Tagger(mecab_args)
         self.vocab = {"<unk>": 0, "<pad>": 1}
         self.inv_vocab = {0: "<unk>", 1: "<pad>"}
+        if model_path:
+            with open(model_path, "r", encoding="utf-8") as f:
+                self.vocab = json.load(f)
+                self.inv_vocab = {v: k for k, v in self.vocab.items()}
 
     def tokenize(self, text):
         # 文章を単語リストに分解 ("吾輩は猫である\n" -> ["吾輩", "は", "猫", "で", "ある"])
@@ -44,6 +50,10 @@ class MeCabTokenizer:
                 self.vocab[token] = idx
                 self.inv_vocab[idx] = token
 
+    def save(self, model_path):
+        with open(model_path, "w", encoding="utf-8") as f:
+            json.dump(self.vocab, f, ensure_ascii=False, indent=4)
+
     @property
     def vocab_size(self):
         return len(self.vocab)
@@ -66,18 +76,52 @@ class MeCabTokenizer:
         return "".join([self.inv_vocab.get(i, "<unk>") for i in ids])
 
 
+class SentencePieceTokenizer:
+    def __init__(self, model_path=None):
+        self.sp = sentencepiece.SentencePieceProcessor()
+        if model_path:
+            self.sp.load(model_path)
+
+    def tokenize(self, text):
+        return self.sp.encode_as_pieces(text)
+
+    def fit(self, corpus_file, vocab_size=32768, model_prefix="sp_model"):
+        sentencepiece.SentencePieceTrainer.train(
+            input=corpus_file,
+            model_prefix=f"{model_prefix}_{vocab_size}",
+            vocab_size=vocab_size,
+            model_type="bpe",
+            normalization_rule_name="nmt_nfkc",
+        )
+
+        self.sp.load(f"{model_prefix}.model")
+
+    def save(self):
+        raise NotImplementedError()
+
+    @property
+    def vocab_size(self):
+        return self.sp.get_piece_size()
+
+    def encode(self, text):
+        ids = self.sp.encode_as_ids(text)
+        return ids
+
+    def decode(self, ids):
+        return self.sp.decode_ids(ids)
+
+
 if __name__ == "__main__":
     import glob
 
     dataset = []
-    files = glob.glob("examples/transformer/dataset/**/*.txt", recursive=True)
+    files = glob.glob("dataset/training/**/*.txt", recursive=True)
     for file in files:
         with open(file, "r", encoding="utf-8") as f:
             dataset.append(f.read())
 
-    dataset = "\n".join(dataset)
     tokenizer = MeCabTokenizer()
-    tokenizer.fit(dataset)
-    dataset = tokenizer.encode(dataset)
+    tokenizer.fit("\n".join(dataset))
+    tokenizer.save("vocab.json")
 
     print(f"Vocabulary size: {tokenizer.vocab_size}")
