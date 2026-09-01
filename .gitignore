@@ -1,8 +1,12 @@
 *~
+*.bk
 *.mat
 *.pyc
 *.txt
 *.npz
+*.model
+*.vocab
+*.json
 build
 chainermin.egg-info/
 dist/

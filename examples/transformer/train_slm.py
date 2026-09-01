@@ -234,16 +234,21 @@ if __name__ == "__main__":
     warmup_iters = 100
     lr_decay_iters = 10000
 
-    dataset = []
-    files = glob.glob("examples/transformer/dataset/**/*.txt", recursive=True)
+    trn_dataset = []
+    val_dataset = []
+    files = glob.glob("dataset/training/**/*.txt", recursive=True)
     for file in files:
         with open(file, "r", encoding="utf-8") as f:
-            dataset.append(f.read())
+            trn_dataset.append(f.read())
 
-    dataset = "\n".join(dataset)
-    tokenizer = tokenizer.MeCabTokenizer()
-    tokenizer.fit(dataset)
-    dataset = tokenizer.encode(dataset)
+    files = glob.glob("dataset/validation/**/*.txt", recursive=True)
+    for file in files:
+        with open(file, "r", encoding="utf-8") as f:
+            val_dataset.append(f.read())
+
+    tokenizer = tokenizer.MeCabTokenizer("vocab.json")
+    trn_dataset = tokenizer.encode("\n".join(trn_dataset))
+    val_dataset = tokenizer.encode("\n".join(val_dataset))
 
     print(f"Vocabulary size: {tokenizer.vocab_size}")
 
@@ -257,7 +262,7 @@ if __name__ == "__main__":
 
     # Move model parameters to GPU
     model.to_gpu()
-    # model.load_npz("examples/transformer/best_model_params.npz")
+    # model.load_npz("best_model_params.npz")
 
     optimizer = optimizers.AdamW(alpha=max_lr)
     optimizer.setup(model)
@@ -272,7 +277,7 @@ if __name__ == "__main__":
         optimizer.alpha = lr
         model.zerograds()
         for j in range(accumulation_steps):
-            x, t = get_batch(dataset, batch_size, context_length)
+            x, t = get_batch(trn_dataset, batch_size, context_length)
             x = model.xp.array(x)
             t = model.xp.array(t)
 
@@ -289,44 +294,46 @@ if __name__ == "__main__":
         optimizer.update()
         print(f"Iteration {it + 1}, Loss: {sum_loss:.4f}, Learning Rate: {lr:.6f}")
 
-        if it != 0 and (it + 1) % eval_interval == 0:
-            # Inference: dropout disabled, no graph
-            with chainermin.inference_mode():
-                eval_loss = 0
-                for j in range(eval_iters):
-                    x, t = get_batch(dataset, batch_size, context_length)
-                    x = model.xp.array(x)
-                    t = model.xp.array(t)
+        if it == 0 or (it + 1) % eval_interval != 0:
+            continue
 
-                    y = model(x, causal_mask)
-                    y_flat = y.reshape(-1, tokenizer.vocab_size)
-                    t_flat = t.reshape(-1)
+        # Inference: dropout disabled, no graph
+        with chainermin.inference_mode():
+            eval_loss = 0
+            for j in range(eval_iters):
+                x, t = get_batch(val_dataset, batch_size, context_length)
+                x = model.xp.array(x)
+                t = model.xp.array(t)
 
-                    loss = F.softmax_cross_entropy(y_flat, t_flat)
+                y = model(x, causal_mask)
+                y_flat = y.reshape(-1, tokenizer.vocab_size)
+                t_flat = t.reshape(-1)
 
-                    eval_loss += loss.data
+                loss = F.softmax_cross_entropy(y_flat, t_flat)
 
-                eval_loss /= eval_iters
-                if eval_loss < best_loss:
-                    best_loss = eval_loss
-                    model.save_npz("examples/transformer/best_model_params.npz")
-                    print(f"New best model saved with loss: {best_loss:.4f}")
+                eval_loss += loss.data
 
-                # プロンプトとして学習データの先頭Nトークンを使用して逐次生成を試す
-                prompt_length = 128
-                prompt = x[0, :prompt_length]
+            eval_loss /= eval_iters
+            if eval_loss < best_loss:
+                best_loss = eval_loss
+                model.save_npz("best_model_params.npz")
+                print(f"New best model saved with loss: {best_loss:.4f}")
 
-                prompt_text = tokenizer.decode(chainermin.backend.to_cpu(prompt))
-                sys.stdout.write(f"[Prompt]     : {prompt_text}\n")
-                sys.stdout.write("[Generated]  : ")
+            # プロンプトとして評価データの先頭Nトークンを使用して逐次生成を試す
+            prompt_length = 128
+            prompt = x[0, :prompt_length]
+
+            prompt_text = tokenizer.decode(chainermin.backend.to_cpu(prompt))
+            sys.stdout.write(f"[Prompt]     : {prompt_text}\n")
+            sys.stdout.write("[Generated]  : ")
+            sys.stdout.flush()
+
+            for _ in range(context_length - prompt_length):
+                prompt = model.generate(start_tokens=prompt, temperature=1.0, top_k=10)
+
+                generated_text = tokenizer.decode([prompt[-1].item()])
+                sys.stdout.write(generated_text)
                 sys.stdout.flush()
 
-                for _ in range(context_length - prompt_length):
-                    prompt = model.generate(start_tokens=prompt, temperature=1.0, top_k=10)
-
-                    generated_text = tokenizer.decode([prompt[-1].item()])
-                    sys.stdout.write(generated_text)
-                    sys.stdout.flush()
-
-                sys.stdout.write("\n")
-                sys.stdout.flush()
+            sys.stdout.write("\n")
+            sys.stdout.flush()
