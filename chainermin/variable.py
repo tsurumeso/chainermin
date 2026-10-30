@@ -119,6 +119,9 @@ class Variable:
             gxs = func.backward(in_data, out_grad)
 
             for x, gx in zip(inputs, gxs):
+                if gx is None:
+                    continue
+
                 if x not in grads:
                     if x.grad is not None:
                         grads[x] = x.grad + gx

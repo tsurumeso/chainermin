@@ -14,13 +14,8 @@ class EmbedIDFunction(function.FunctionNode):
         x = inputs[0]
         gy = grad_outputs[0]
         gW = xp.zeros(self._w_shape, dtype=gy.dtype)
-
-        # It is equivalent to `numpy.add.at(gW, x, gy)` but ufunc.at is
-        # too slow.
-        for ix, igy in zip(x.ravel(), gy.reshape(x.size, -1)):
-            gW[ix] += igy
-
-        return (gW,)
+        xp.add.at(gW, x, gy)
+        return None, gW
 
 
 def embed_id(x, W):
