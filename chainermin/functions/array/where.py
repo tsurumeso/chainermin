@@ -12,7 +12,7 @@ class Where(function.FunctionNode):
         return (xp.where(condition, x, y),)
 
     def backward(self, inputs, grad_outputs):
-        xp = backend.get_array_module(*inputs)
+        xp = backend.get_array_module(*grad_outputs)
         gx = xp.where(self.condition, grad_outputs[0], 0)
         gy = xp.where(self.condition, 0, grad_outputs[0])
         return gx, gy
