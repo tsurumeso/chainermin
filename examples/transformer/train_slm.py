@@ -262,7 +262,7 @@ if __name__ == "__main__":
 
     # Move model parameters to GPU
     model.to_gpu()
-    #model.load_npz("best_model_params.npz")
+    # model.load_npz("best_model_params.npz")
 
     optimizer = optimizers.AdamW(alpha=max_lr)
     optimizer.setup(model)
@@ -330,12 +330,16 @@ if __name__ == "__main__":
             sys.stdout.write("[Generated]  : ")
             sys.stdout.flush()
 
+            prev_text = ""
             for _ in range(context_length - prompt_length):
                 prompt = model.generate(start_tokens=prompt, temperature=1.0, top_k=10)
 
-                generated_text = tokenizer.decode([prompt[-1].item()])
-                sys.stdout.write(generated_text)
-                sys.stdout.flush()
+                generated_ids = chainermin.backend.to_cpu(prompt[prompt_length:])
+                decoded_text = tokenizer.decode(generated_ids)
+                if not decoded_text.endswith("\ufffd"):
+                    sys.stdout.write(decoded_text[len(prev_text) :])
+                    sys.stdout.flush()
+                    prev_text = decoded_text
 
             sys.stdout.write("\n")
             sys.stdout.flush()
