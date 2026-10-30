@@ -126,14 +126,13 @@ class SmallLanguageModel(chainermin.Chain):
 
     def __init__(self, vocab_size, context_length, num_layers, num_heads, embd_size):
         super().__init__()
-        self.tok_embd = L.EmbedID(vocab_size, embd_size)
-        self.pos_embd = L.EmbedID(context_length, embd_size)
+        self.tok_embd = L.EmbedID(vocab_size, embd_size, wscale=0.02)
+        self.pos_embd = L.EmbedID(context_length, embd_size, wscale=0.02)
         for idx in range(num_layers):
             layer_name = f"block_{idx}"
             layer = DecoderBlock(num_heads, embd_size)
             setattr(self, layer_name, layer)
         self.ln = L.LayerNormalization(embd_size)
-        self.lm_head = L.Linear(embd_size, vocab_size)
 
         self.num_layers = num_layers
         self.context_length = context_length
@@ -153,7 +152,7 @@ class SmallLanguageModel(chainermin.Chain):
             x = block(x, causal_mask)
 
         x = self.ln(x, n_batch_axes=2)
-        return self.lm_head(x, n_batch_axes=2)
+        return F.linear(x, self.tok_embd.W, n_batch_axes=2)
 
     def generate(self, start_tokens, temperature=1.0, top_k=10):
         # (1, T) の形状に変換
@@ -223,30 +222,31 @@ if __name__ == "__main__":
     context_length = 512
     embd_size = 768
 
-    batch_size = 8
-    accumulation_steps = 8
+    batch_size = 4
+    accumulation_steps = 32
     start_iter = 0
-    max_iters = 10000
-    eval_iters = 10
+    max_iters = start_iter + 10000
+    eval_iters = 32
     eval_interval = 10
     max_lr = 3e-4
     min_lr = 3e-5
-    warmup_iters = 100
-    lr_decay_iters = 10000
+    warmup_iters = start_iter + 100
+    lr_decay_iters = start_iter + 10000
 
     trn_dataset = []
     val_dataset = []
-    files = glob.glob("dataset/training/**/*.txt", recursive=True)
+    files = glob.glob("dataset/training/*.txt", recursive=True)
     for file in files:
         with open(file, "r", encoding="utf-8") as f:
             trn_dataset.append(f.read())
 
-    files = glob.glob("dataset/validation/**/*.txt", recursive=True)
+    files = glob.glob("dataset/validation/*.txt", recursive=True)
     for file in files:
         with open(file, "r", encoding="utf-8") as f:
             val_dataset.append(f.read())
 
-    tokenizer = tokenizer.MeCabTokenizer("vocab.json")
+    # tokenizer = tokenizer.MeCabTokenizer("vocab.json")
+    tokenizer = tokenizer.SentencePieceTokenizer("sp_model_32768.model")
     trn_dataset = tokenizer.encode("\n".join(trn_dataset))
     val_dataset = tokenizer.encode("\n".join(val_dataset))
 
@@ -262,7 +262,7 @@ if __name__ == "__main__":
 
     # Move model parameters to GPU
     model.to_gpu()
-    # model.load_npz("best_model_params.npz")
+    #model.load_npz("best_model_params.npz")
 
     optimizer = optimizers.AdamW(alpha=max_lr)
     optimizer.setup(model)
@@ -314,10 +314,12 @@ if __name__ == "__main__":
                 eval_loss += loss.data
 
             eval_loss /= eval_iters
+            print(f"Evaluation Loss: {eval_loss:.4f}")
+
             if eval_loss < best_loss:
                 best_loss = eval_loss
                 model.save_npz("best_model_params.npz")
-                print(f"New best model saved with loss: {best_loss:.4f}")
+                print("New best model saved")
 
             # プロンプトとして評価データの先頭Nトークンを使用して逐次生成を試す
             prompt_length = 128

@@ -86,12 +86,15 @@ class SentencePieceTokenizer:
         return self.sp.encode_as_pieces(text)
 
     def fit(self, corpus_file, vocab_size=32768, model_prefix="sp_model"):
+        model_prefix = f"{model_prefix}_{vocab_size}"
         sentencepiece.SentencePieceTrainer.train(
             input=corpus_file,
-            model_prefix=f"{model_prefix}_{vocab_size}",
+            model_prefix=model_prefix,
             vocab_size=vocab_size,
             model_type="bpe",
             normalization_rule_name="nmt_nfkc",
+            split_digits=True,
+            byte_fallback=True,
         )
 
         self.sp.load(f"{model_prefix}.model")
@@ -115,13 +118,13 @@ if __name__ == "__main__":
     import glob
 
     dataset = []
-    files = glob.glob("dataset/training/**/*.txt", recursive=True)
+    files = glob.glob("dataset/training/*.txt", recursive=True)
     for file in files:
         with open(file, "r", encoding="utf-8") as f:
             dataset.append(f.read())
 
-    tokenizer = MeCabTokenizer()
-    tokenizer.fit("\n".join(dataset))
-    tokenizer.save("vocab.json")
+    tokenizer = SentencePieceTokenizer()
+    tokenizer.fit(",".join(files))
+    # tokenizer.save("vocab.json")  # SentencePieceTokenizer does not implement save() yet
 
     print(f"Vocabulary size: {tokenizer.vocab_size}")
