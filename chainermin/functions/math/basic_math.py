@@ -58,7 +58,7 @@ class DivFromConstant(function.FunctionNode):
         return (y,)
 
     def backward(self, x, gy):
-        return -self.value * gy[0] / (x[0] ** 2)
+        return (-self.value * gy[0] / (x[0] ** 2),)
 
 
 def rdiv(lhs, rhs):
@@ -104,7 +104,7 @@ class PowVarVar(function.FunctionNode):
     def backward(self, x, gy):
         xp = backend.get_array_module(*x)
         gx0 = gy[0] * x[1] * x[0] ** (x[1] - 1)
-        gx1 = gy[1] * xp.log(x[0]) * x[0] ** x[1]
+        gx1 = gy[0] * xp.log(x[0]) * x[0] ** x[1]
         return gx0, gx1
 
 
@@ -139,7 +139,7 @@ class PowConstVar(function.FunctionNode):
 
     def backward(self, x, gy):
         xp = backend.get_array_module(*x)
-        gx0 = gy[1] * xp.log(self.value) * self.value ** x[0]
+        gx0 = gy[0] * xp.log(self.value) * self.value ** x[0]
         return (gx0,)
 
 
@@ -176,6 +176,24 @@ def sub(lhs, rhs):
     return SubConstant(rhs)(lhs)
 
 
+class SubFromConstant(function.FunctionNode):
+    def __init__(self, value):
+        self.value = value
+
+    def forward(self, x):
+        y = utils.force_array(self.value - x[0])
+        return (y,)
+
+    def backward(self, x, gy):
+        return (-gy[0],)
+
+
+def rsub(lhs, rhs):
+    if isinstance(rhs, variable.Variable):
+        return Sub()(rhs, lhs)
+    return SubFromConstant(rhs)(lhs)
+
+
 def matmul(self, rhs):  # lhs @ rhs
     return chainermin.functions.matmul(self, rhs)
 
@@ -196,6 +214,6 @@ def install_variable_arithmetics():
     variable.Variable.__pow__ = pow
     variable.Variable.__rpow__ = rpow
     variable.Variable.__sub__ = sub
-    variable.Variable.__rsub__ = sub
+    variable.Variable.__rsub__ = rsub
     variable.Variable.__matmul__ = matmul
     variable.Variable.__rmatmul__ = rmatmul
