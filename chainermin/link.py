@@ -75,11 +75,6 @@ class Chain(Link):
             for path, param in self.__dict__[name].namedparams():
                 yield prefix + path, param
 
-    def zerograds(self):
-        super().zerograds()
-        for name in self._children:
-            self.__dict__[name].zerograds()
-
     def to_cpu(self):
         super().to_cpu()
         for name in self._children:
