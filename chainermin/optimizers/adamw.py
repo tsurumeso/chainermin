@@ -27,7 +27,7 @@ class AdamW(optimizer.Optimizer):
 
         # 2. Weight Decay の適用
         if self.weight_decay != 0:
-            param.data -= self.lr * self.weight_decay * param.data
+            param.data -= self.alpha * self.weight_decay * param.data
 
         # 3. Adam の移動ステップ適用
         param.data -= self.lr * m / (xp.sqrt(v) + self.eps)
