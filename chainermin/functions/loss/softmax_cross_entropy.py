@@ -1,12 +1,11 @@
-import numpy
-
 from chainermin import backend, function
 
 
 def _log_softmax(x):
+    xp = backend.get_array_module(x)
     m = x.max(axis=1, keepdims=True)
     y = x - m
-    z = numpy.log(numpy.exp(y).sum(axis=1, keepdims=True))
+    z = xp.log(xp.exp(y).sum(axis=1, keepdims=True))
     return y - z
 
 
@@ -16,19 +15,19 @@ class SoftmaxCrossEntropy(function.FunctionNode):
         xp = backend.get_array_module(*inputs)
         x, t = inputs
         n_batches = x.shape[0]
-        n_classes = x.shape[1]
-        self.t = xp.array([t == i for i in range(n_classes)]).astype(numpy.int32).T
         self.log_p = _log_softmax(x)
-        y = -xp.sum(self.t * self.log_p)
-        y /= n_batches
+        log_p = self.log_p[xp.arange(n_batches), t.ravel()]
+        y = -xp.sum(log_p) / n_batches
         return (y.reshape(()),)
 
     def backward(self, inputs, grad_outputs):
         xp = backend.get_array_module(*inputs, *grad_outputs)
-        x, _ = inputs
+        x, t = inputs
+        gy = grad_outputs[0]
         n_batches = x.shape[0]
-        gx = xp.exp(self.log_p) - self.t
-        gx /= n_batches
+        gx = xp.exp(self.log_p)
+        gx[xp.arange(n_batches), t.ravel()] -= 1
+        gx = gx * gy / n_batches
         return gx, None
 
 
