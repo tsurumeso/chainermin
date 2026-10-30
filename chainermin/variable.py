@@ -128,7 +128,7 @@ class Variable:
                     else:
                         grads[x] = gx
                 else:
-                    grads[x] += gx
+                    grads[x] = grads[x] + gx
 
                 if x.variable is not None:
                     x.variable.grad = grads[x]
@@ -139,6 +139,8 @@ class Variable:
             if not retain_grad:
                 for y in outputs:
                     grads[y] = None
+                    if y.variable is not None:
+                        y.variable.grad = None
 
     def to_cpu(self):
         self.data = backend.to_cpu(self.data)
