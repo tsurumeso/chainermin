@@ -219,7 +219,7 @@ if __name__ == "__main__":
     # Hyperparameters
     num_layers = 12
     num_heads = 12
-    context_length = 512
+    context_length = 1024
     embd_size = 768
 
     batch_size = 4
@@ -227,7 +227,7 @@ if __name__ == "__main__":
     start_iter = 0
     max_iters = start_iter + 10000
     eval_iters = 32
-    eval_interval = 10
+    eval_interval = 100
     max_lr = 3e-4
     min_lr = 3e-5
     warmup_iters = start_iter + 100
@@ -287,6 +287,7 @@ if __name__ == "__main__":
 
             loss = F.softmax_cross_entropy(y_flat, t_flat)
             del y, y_flat
+
             loss /= accumulation_steps
             loss.backward()
 
@@ -324,7 +325,7 @@ if __name__ == "__main__":
                 print("New best model saved")
 
             # プロンプトとして評価データの先頭Nトークンを使用して逐次生成を試す
-            prompt_length = 128
+            prompt_length = 256
             prompt = x[0, :prompt_length]
 
             prompt_text = tokenizer.decode(chainermin.backend.to_cpu(prompt))
