@@ -3,14 +3,14 @@ from chainermin import backend, function
 
 class EmbedIDFunction(function.FunctionNode):
     def forward(self, inputs):
-        self.retain_inputs()
+        self.retain_inputs((0,))
         x, W = inputs
         self._w_shape = W.shape
 
         return (W[x],)
 
     def backward(self, inputs, grad_outputs):
-        xp = backend.get_array_module(*inputs, *grad_outputs)
+        xp = backend.get_array_module(*grad_outputs)
         x = inputs[0]
         gy = grad_outputs[0]
         gW = xp.zeros(self._w_shape, dtype=gy.dtype)

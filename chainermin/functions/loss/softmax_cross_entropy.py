@@ -6,12 +6,13 @@ def _log_softmax(x):
     m = x.max(axis=1, keepdims=True)
     y = x - m
     z = xp.log(xp.exp(y).sum(axis=1, keepdims=True))
-    return y - z
+    y -= z
+    return y
 
 
 class SoftmaxCrossEntropy(function.FunctionNode):
     def forward(self, inputs):
-        self.retain_inputs()
+        self.retain_inputs((1,))
         xp = backend.get_array_module(*inputs)
         x, t = inputs
         n_batches = x.shape[0]
@@ -21,13 +22,13 @@ class SoftmaxCrossEntropy(function.FunctionNode):
         return (y.reshape(()),)
 
     def backward(self, inputs, grad_outputs):
-        xp = backend.get_array_module(*inputs, *grad_outputs)
-        x, t = inputs
+        xp = backend.get_array_module(*grad_outputs)
+        _, t = inputs
         gy = grad_outputs[0]
-        n_batches = x.shape[0]
-        gx = xp.exp(self.log_p)
+        n_batches = self.log_p.shape[0]
+        gx = xp.exp(self.log_p, out=self.log_p)
         gx[xp.arange(n_batches), t.ravel()] -= 1
-        gx = gx * gy / n_batches
+        gx *= gy / n_batches
         return gx, None
 
 
