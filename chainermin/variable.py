@@ -139,6 +139,7 @@ class Variable:
             if not retain_grad:
                 for y in outputs:
                     grads[y] = None
+                    y._creator_node = None
                     if y.variable is not None:
                         y.variable.grad = None
 
