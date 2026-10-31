@@ -8,51 +8,33 @@ class LayerNormalization(function.FunctionNode):
         self.eps = eps
 
     def forward(self, inputs):
-        self.retain_inputs()
+        self.retain_inputs((1,))
         xp = backend.get_array_module(*inputs)
         x, gamma, beta = inputs
         mu = xp.mean(x, axis=1, keepdims=True)
-        self.x_mu = x - mu
-        self.squ_x_mu = xp.square(self.x_mu)
-        self.var = xp.mean(self.squ_x_mu, axis=1, keepdims=True)
-        std = xp.sqrt(self.var + self.eps)
-        self.inv_std = 1.0 / std
-        self.x_hat = self.x_mu * self.inv_std
+        x_mu = x - mu
+        var = xp.mean(xp.square(x_mu), axis=1, keepdims=True)
+        self.inv_std = 1.0 / xp.sqrt(var + self.eps)
+        self.x_hat = x_mu * self.inv_std
         scaled_x = self.x_hat * gamma[None,]
         shifted_x = scaled_x + beta[None,]
         return (shifted_x,)
 
     def backward(self, inputs, gy):
-        xp = backend.get_array_module(*inputs, *gy)
-        x, gamma, _ = inputs
+        xp = backend.get_array_module(*gy)
+        _, gamma, _ = inputs
         gy = gy[0]
 
         g_beta = gy.sum(axis=0)
-        g_scaled_x = gy
+        g_gamma = xp.sum(gy * self.x_hat, axis=0)
+        g_x_hat = gy * gamma[None,]
 
-        g_gamma = xp.sum(g_scaled_x * self.x_hat, axis=0)
-        g_x_hat = g_scaled_x * gamma[None,]
-
-        g_inv_std = xp.sum(g_x_hat * self.x_mu, axis=1, keepdims=True)
-        g_x_mu_1 = g_x_hat * self.inv_std
-
-        g_std = g_inv_std * (-1.0 / (self.var + self.eps))
-        # = g_inv_std * (- 1. / (self.std ** 2))
-
-        g_var = g_std * 0.5 * self.inv_std
-        # = g_std * 0.5 * 1. / xp.sqrt(self.var + self.eps)
-
-        n_units = x.shape[1]
-        g_squ_x_mu = xp.broadcast_to(g_var * 1.0 / n_units, x.shape)
-        g_x_mu_2 = g_squ_x_mu * 2 * self.x_mu
-
-        g_x_1 = g_x_mu_1 + g_x_mu_2
-        g_mu = xp.sum(g_x_1, axis=1, keepdims=True) * (-1.0)
-        # = numpy.sum(g_x_mu_1 + g_x_mu_2, axis=1, keepdims=True) * (- 1.)
-
-        g_x_2 = xp.broadcast_to(g_mu * 1.0 / n_units, x.shape)
-
-        g_x = g_x_1 + g_x_2
+        n_units = g_x_hat.shape[1]
+        g_x = (self.inv_std / n_units) * (
+            n_units * g_x_hat
+            - xp.sum(g_x_hat, axis=1, keepdims=True)
+            - self.x_hat * xp.sum(g_x_hat * self.x_hat, axis=1, keepdims=True)
+        )
 
         return (
             g_x,
