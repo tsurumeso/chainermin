@@ -247,8 +247,8 @@ if __name__ == "__main__":
 
     # tokenizer = tokenizer.MeCabTokenizer("vocab.json")
     tokenizer = tokenizer.SentencePieceTokenizer("sp_model_32768.model")
-    trn_dataset = tokenizer.encode("\n".join(trn_dataset))
-    val_dataset = tokenizer.encode("\n".join(val_dataset))
+    trn_dataset = np.array(tokenizer.encode("\n".join(trn_dataset)), dtype=np.int32)
+    val_dataset = np.array(tokenizer.encode("\n".join(val_dataset)), dtype=np.int32)
 
     print(f"Vocabulary size: {tokenizer.vocab_size}")
 
@@ -286,6 +286,7 @@ if __name__ == "__main__":
             t_flat = t.reshape(-1)
 
             loss = F.softmax_cross_entropy(y_flat, t_flat)
+            del y, y_flat
             loss /= accumulation_steps
             loss.backward()
 
@@ -310,6 +311,7 @@ if __name__ == "__main__":
                 t_flat = t.reshape(-1)
 
                 loss = F.softmax_cross_entropy(y_flat, t_flat)
+                del y, y_flat
 
                 eval_loss += loss.data
 
