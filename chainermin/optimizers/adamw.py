@@ -15,6 +15,7 @@ class AdamW(optimizer.Optimizer):
         xp = backend.get_array_module(param.data)
         state["m"] = xp.zeros_like(param.data)
         state["v"] = xp.zeros_like(param.data)
+        state["weight_decay"] = self.weight_decay
 
     def update_one(self, param, state):
         xp = backend.get_array_module(param.data)
@@ -26,8 +27,8 @@ class AdamW(optimizer.Optimizer):
         v += (1 - self.beta2) * (grad * grad - v)
 
         # 2. Weight Decay の適用
-        if self.weight_decay != 0:
-            param.data -= self.alpha * self.weight_decay * param.data
+        if state["weight_decay"] != 0:
+            param.data -= self.alpha * state["weight_decay"] * param.data
 
         # 3. Adam の移動ステップ適用
         param.data -= self.lr * m / (xp.sqrt(v) + self.eps)

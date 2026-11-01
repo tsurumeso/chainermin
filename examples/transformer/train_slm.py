@@ -266,6 +266,9 @@ if __name__ == "__main__":
 
     optimizer = optimizers.AdamW(alpha=max_lr)
     optimizer.setup(model)
+    for name, param in model.namedparams():
+        if param.ndim < 2:
+            optimizer.states[name]["weight_decay"] = 0.0
 
     # Causal Mask: lower-triangular
     causal_mask = model.xp.tril(model.xp.ones((context_length, context_length), dtype=np.int32))
