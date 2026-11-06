@@ -104,15 +104,15 @@ class MultiHeadAttention(chainermin.Chain):
         k = k.reshape(B, T, H, d).transpose(0, 2, 1, 3)
         v = v.reshape(B, T, H, d).transpose(0, 2, 1, 3)
 
-        # RoPE の適用
+        # RoPE の適用 (角度計算は精度維持のため float32 で行い dtype にキャスト)
         half_d = d // 2
         inv_freq = self.xp.exp(
-            -math.log(10000.0) * self.xp.arange(0, half_d, dtype=dtype) / half_d
+            -math.log(10000.0) * self.xp.arange(0, half_d, dtype=np.float32) / half_d
         )
-        t = self.xp.arange(T, dtype=dtype)
+        t = self.xp.arange(T, dtype=np.float32)
         freqs = self.xp.outer(t, inv_freq)[None, None, :, :]
-        cos = self.xp.cos(freqs)
-        sin = self.xp.sin(freqs)
+        cos = self.xp.cos(freqs).astype(dtype, copy=False)
+        sin = self.xp.sin(freqs).astype(dtype, copy=False)
         q = rope(q, cos, sin)
         k = rope(k, cos, sin)
 
@@ -206,9 +206,9 @@ class SmallLanguageModel(chainermin.Chain):
         x_crop = curr_x[:, -self.context_length :]
         logits = self(x_crop)
 
-        # 最後のステップの Logits を取得
+        # 最後のステップの Logits を取得 (確率計算の精度維持のため float32 にキャスト)
         logits = logits.data
-        next_token_logits = logits[:, -1, :]
+        next_token_logits = logits[:, -1, :].astype(np.float32, copy=False)
 
         # Repetition Penalty の適用 (既出トークンのLogitを減衰)
         if repetition_penalty != 1.0:
@@ -299,13 +299,13 @@ def get_lr(it, max_lr, min_lr, warmup_iters, lr_decay_iters):
 
 if __name__ == "__main__":
     # Hyperparameters
-    num_layers = 12
-    num_heads = 12
+    num_layers = 24
+    num_heads = 16
     context_length = 1024
-    embd_size = 768
+    embd_size = 1024
 
-    batch_size = 4
-    accumulation_steps = 32
+    batch_size = 2
+    accumulation_steps = 64
     start_iter = 0
     max_iters = start_iter + 10000
     eval_iters = 32
@@ -314,6 +314,7 @@ if __name__ == "__main__":
     min_lr = 3e-5
     warmup_iters = start_iter + 100
     lr_decay_iters = start_iter + 10000
+    loss_scale = 1024.0
 
     dataset_dir = sys.argv[1] if len(sys.argv) > 1 else "dataset"
     # tokenizer = tokenizer.MeCabTokenizer("vocab.json")
@@ -339,11 +340,12 @@ if __name__ == "__main__":
         embd_size=embd_size,
     )
 
-    # Move model parameters to GPU
+    # Move model parameters to GPU and convert to FP16
+    model.to_dtype(np.float16)
     model.to_gpu()
     # model.load_npz("best_model_params.npz")
 
-    optimizer = optimizers.AdamW(alpha=max_lr)
+    optimizer = optimizers.AdamW(alpha=max_lr, loss_scale=loss_scale)
     optimizer.setup(model)
     for name, param in model.namedparams():
         if param.ndim < 2:
@@ -367,13 +369,12 @@ if __name__ == "__main__":
             loss = F.softmax_cross_entropy(y_flat, t_flat)
             del y, y_flat
 
-            loss /= accumulation_steps
-            loss.backward()
-
+            loss.backward(loss_scale=loss_scale / accumulation_steps)
             sum_loss += loss.data
 
         optimizer.update()
-        print(f"Iteration {it + 1}, Loss: {sum_loss:.4f}, Learning Rate: {lr:.6f}")
+        avg_loss = sum_loss / accumulation_steps
+        print(f"Iteration {it + 1}, Loss: {avg_loss:.4f}, Learning Rate: {lr:.6f}")
 
         if it == 0 or (it + 1) % eval_interval != 0:
             continue

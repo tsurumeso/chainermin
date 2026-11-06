@@ -8,10 +8,10 @@ import chainermin
 
 if __name__ == "__main__":
     # モデル設定 (学習時と同じハイパーパラメータ)
-    num_layers = 12
-    num_heads = 12
+    num_layers = 24
+    num_heads = 16
     context_length = 1024
-    embd_size = 768
+    embd_size = 1024
 
     # 生成設定
     max_new_tokens = 256
@@ -27,7 +27,8 @@ if __name__ == "__main__":
         num_heads=num_heads,
         embd_size=embd_size,
     )
-    # model.to_gpu()
+    model.to_dtype(np.float16)
+    model.to_gpu()
     model.load_npz("best_model_params.npz")
 
     prompt_text = sys.argv[1]
