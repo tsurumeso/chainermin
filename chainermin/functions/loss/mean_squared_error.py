@@ -1,12 +1,12 @@
-from chainermin import function
+from chainermin import backend, function
 
 
 class MeanSquaredError(function.FunctionNode):
     def forward(self, inputs):
+        xp = backend.get_array_module(*inputs)
         y, t = inputs
         self.diff = y - t
-        diff = self.diff.ravel()
-        return (diff.dot(diff) / diff.size,)
+        return (xp.mean(xp.square(self.diff)),)
 
     def backward(self, inputs, grad_outputs):
         gy = grad_outputs[0]

@@ -18,7 +18,7 @@ class SoftmaxCrossEntropy(function.FunctionNode):
         n_batches = x.shape[0]
         self.log_p = _log_softmax(x)
         log_p = self.log_p[xp.arange(n_batches), t.ravel()]
-        y = -xp.sum(log_p) / n_batches
+        y = -xp.mean(log_p)
         return (y.reshape(()),)
 
     def backward(self, inputs, grad_outputs):

@@ -7,7 +7,9 @@ from chainermin.initializers.normal import (
 )
 
 
-def generate_array(initializer, shape):
-    array = numpy.empty(shape, dtype=numpy.float32)
+def generate_array(initializer, shape, dtype=numpy.float32):
+    if getattr(initializer, "dtype", None) is not None:
+        dtype = initializer.dtype
+    array = numpy.empty(shape, dtype=dtype)
     initializer(array)
     return array

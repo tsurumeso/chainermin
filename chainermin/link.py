@@ -18,7 +18,7 @@ class Link:
         if initializer is None:
             data = self._xp.full(shape, 0, dtype=dtype)
         else:
-            data = initializers.generate_array(initializer, shape)
+            data = initializers.generate_array(initializer, shape, dtype=dtype)
         grad = self._xp.zeros_like(data)
         var = variable.Variable(data, grad)
         self._params.append(name)

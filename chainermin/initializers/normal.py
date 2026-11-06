@@ -4,7 +4,7 @@ from chainermin import initializer
 
 
 class Normal(initializer.Initializer):
-    def __init__(self, scale=1.0, dtype=numpy.float32):
+    def __init__(self, scale=1.0, dtype=None):
         self.scale = scale
         super().__init__(dtype)
 
@@ -21,4 +21,4 @@ class HeNormal(initializer.Initializer):
     def __call__(self, array):
         fan_in, _ = initializer.get_fans(array.shape)
         s = self.scale * numpy.sqrt(2.0 / fan_in)
-        Normal(s)(array)
+        Normal(s, dtype=self.dtype)(array)

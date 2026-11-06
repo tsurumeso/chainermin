@@ -29,11 +29,10 @@ class LayerNormalization(function.FunctionNode):
         g_gamma = xp.sum(gy * self.x_hat, axis=0)
         g_x_hat = gy * gamma[None,]
 
-        n_units = g_x_hat.shape[1]
-        g_x = (self.inv_std / n_units) * (
-            n_units * g_x_hat
-            - xp.sum(g_x_hat, axis=1, keepdims=True)
-            - self.x_hat * xp.sum(g_x_hat * self.x_hat, axis=1, keepdims=True)
+        g_x = self.inv_std * (
+            g_x_hat
+            - xp.mean(g_x_hat, axis=1, keepdims=True)
+            - self.x_hat * xp.mean(g_x_hat * self.x_hat, axis=1, keepdims=True)
         )
 
         return (
