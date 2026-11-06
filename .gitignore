@@ -3,6 +3,7 @@
 *.mat
 *.pyc
 *.txt
+*.npy
 *.npz
 *.model
 *.vocab
