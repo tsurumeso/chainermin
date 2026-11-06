@@ -1,5 +1,6 @@
 from chainermin.functions.activation.relu import relu  # NOQA
 from chainermin.functions.activation.sigmoid import sigmoid  # NOQA
+from chainermin.functions.activation.silu import silu  # NOQA
 from chainermin.functions.activation.softmax import softmax  # NOQA
 
 from chainermin.functions.array.cast import cast  # NOQA
