@@ -1,5 +1,8 @@
+import os
+
 import numpy
 
+os.environ.setdefault("CUPY_TF32", "1")
 try:
     import cupy
 except ImportError:
