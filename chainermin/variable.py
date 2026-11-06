@@ -153,6 +153,11 @@ class Variable:
         if self.grad is not None:
             self.grad = backend.to_gpu(self.grad)
 
+    def to_dtype(self, dtype):
+        self.data = self.data.astype(dtype, copy=False)
+        if self.grad is not None:
+            self.grad = self.grad.astype(dtype, copy=False)
+
     def zerograd(self):
         self.grad.fill(0)
 

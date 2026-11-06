@@ -50,6 +50,10 @@ class Link:
             param.to_gpu()
         self._xp = backend.cupy
 
+    def to_dtype(self, dtype):
+        for param in self.params():
+            param.to_dtype(dtype)
+
 
 class Chain(Link):
     def __init__(self, **links):
@@ -85,6 +89,11 @@ class Chain(Link):
         for name in self._children:
             self.__dict__[name].to_gpu()
 
+    def to_dtype(self, dtype):
+        super().to_dtype(dtype)
+        for name in self._children:
+            self.__dict__[name].to_dtype(dtype)
+
     def save_npz(self, filename):
         params_dict = {}
         for path, param in self.namedparams():
@@ -102,6 +111,6 @@ class Chain(Link):
                 key = path.lstrip("/")
                 if key in f:
                     loaded_data = f[key]
-                    param.data = self._xp.array(loaded_data)
+                    param.data = self._xp.array(loaded_data, dtype=param.data.dtype)
                 else:
                     print(f"Warning: {key} not found in {filename}")
