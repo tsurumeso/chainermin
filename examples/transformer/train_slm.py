@@ -88,7 +88,7 @@ class MultiHeadAttention(chainermin.Chain):
         self.value = L.Linear(embd_size, embd_size, nobias=True)
         self.proj = L.Linear(embd_size, embd_size, nobias=True)
 
-    def __call__(self, x, causal_mask):
+    def __call__(self, x):
         dtype = x.data.dtype
         B, T, _ = x.shape
         H = self.num_heads
@@ -118,6 +118,7 @@ class MultiHeadAttention(chainermin.Chain):
 
         # (B, H, T, d) @ (B, H, d, T) -> (B, H, T, T)
         attn = F.batch_matmul(q, k.transpose(0, 1, 3, 2)) / np.sqrt(d, dtype=dtype)
+        causal_mask = self.xp.tril(self.xp.ones((T, T), dtype=np.int32))
         attn = F.where(causal_mask[None, None, :, :] == 0, -np.inf, attn)
         attn = F.softmax(attn, axis=-1)
 
@@ -161,8 +162,8 @@ class DecoderBlock(chainermin.Chain):
         self.ln1 = L.LayerNormalization(embd_size)
         self.ln2 = L.LayerNormalization(embd_size)
 
-    def __call__(self, x, causal_mask):
-        x = x + self.sa(self.ln1(x, n_batch_axes=2), causal_mask)
+    def __call__(self, x):
+        x = x + self.sa(self.ln1(x, n_batch_axes=2))
         x = x + self.ffwd(self.ln2(x, n_batch_axes=2))
         return x
 
@@ -182,7 +183,7 @@ class SmallLanguageModel(chainermin.Chain):
         self.num_layers = num_layers
         self.context_length = context_length
 
-    def __call__(self, x, causal_mask):
+    def __call__(self, x):
         # Token embeddings (positional information is injected via RoPE in each block)
         x = self.tok_embd(x)
 
@@ -192,7 +193,7 @@ class SmallLanguageModel(chainermin.Chain):
         # Stacked decoder blocks
         for idx in range(self.num_layers):
             block = getattr(self, f"block_{idx}")
-            x = block(x, causal_mask)
+            x = block(x)
 
         x = self.ln(x, n_batch_axes=2)
         return F.linear(x, self.tok_embd.W, n_batch_axes=2)
@@ -203,11 +204,7 @@ class SmallLanguageModel(chainermin.Chain):
 
         # context_length を超えないように末尾をクロップ
         x_crop = curr_x[:, -self.context_length :]
-
-        # 現在の系列長に応じた Causal Mask を作成
-        T = x_crop.shape[1]
-        causal_mask = self.xp.tril(self.xp.ones((T, T), dtype=np.int32))
-        logits = self(x_crop, causal_mask)
+        logits = self(x_crop)
 
         # 最後のステップの Logits を取得
         logits = logits.data
@@ -352,9 +349,6 @@ if __name__ == "__main__":
         if param.ndim < 2:
             optimizer.states[name]["weight_decay"] = 0.0
 
-    # Causal Mask: lower-triangular
-    causal_mask = model.xp.tril(model.xp.ones((context_length, context_length), dtype=np.int32))
-
     best_loss = np.inf
     for it in range(start_iter, max_iters):
         sum_loss = 0
@@ -366,7 +360,7 @@ if __name__ == "__main__":
             x = model.xp.array(x)
             t = model.xp.array(t)
 
-            y = model(x, causal_mask)
+            y = model(x)
             y_flat = y.reshape(-1, tokenizer.vocab_size)
             t_flat = t.reshape(-1)
 
@@ -392,7 +386,7 @@ if __name__ == "__main__":
                 x = model.xp.array(x)
                 t = model.xp.array(t)
 
-                y = model(x, causal_mask)
+                y = model(x)
                 y_flat = y.reshape(-1, tokenizer.vocab_size)
                 t_flat = t.reshape(-1)
 
