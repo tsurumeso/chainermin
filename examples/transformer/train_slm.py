@@ -1,5 +1,6 @@
 import glob
 import math
+import os
 import sys
 
 import numpy as np
@@ -202,6 +203,38 @@ class SmallLanguageModel(chainermin.Chain):
         return curr_x[0]
 
 
+def load_dataset(pattern, tokenizer, cache_path, chunk_size=10_000_000):
+    if os.path.exists(cache_path):
+        print(f"Loading cached dataset from {cache_path}")
+        return np.load(cache_path)
+
+    files = sorted(glob.glob(pattern, recursive=True))
+    chunks = []
+    buf = []
+    buf_len = 0
+    for file in files:
+        with open(file, "r", encoding="utf-8") as f:
+            while True:
+                lines = f.readlines(chunk_size)
+                if not lines:
+                    break
+                text = "".join(lines)
+                buf.append(text)
+                buf_len += len(text)
+                if buf_len >= chunk_size:
+                    chunks.append(np.array(tokenizer.encode("\n".join(buf)), dtype=np.int32))
+                    buf.clear()
+                    buf_len = 0
+    if buf:
+        chunks.append(np.array(tokenizer.encode("\n".join(buf)), dtype=np.int32))
+        buf.clear()
+
+    dataset = np.concatenate(chunks) if chunks else np.empty(0, dtype=np.int32)
+    np.save(cache_path, dataset)
+    print(f"Saved cached dataset to {cache_path} ({len(dataset):,} tokens)")
+    return dataset
+
+
 def get_batch(dataset, batch_size, context_length):
     idx = np.random.randint(0, len(dataset) - context_length - 1, size=batch_size)
     x = np.stack([dataset[i : i + context_length] for i in idx])
@@ -243,22 +276,19 @@ if __name__ == "__main__":
     warmup_iters = start_iter + 100
     lr_decay_iters = start_iter + 10000
 
-    trn_dataset = []
-    val_dataset = []
-    files = glob.glob("dataset/training/*.txt", recursive=True)
-    for file in files:
-        with open(file, "r", encoding="utf-8") as f:
-            trn_dataset.append(f.read())
-
-    files = glob.glob("dataset/validation/*.txt", recursive=True)
-    for file in files:
-        with open(file, "r", encoding="utf-8") as f:
-            val_dataset.append(f.read())
-
+    dataset_dir = sys.argv[1] if len(sys.argv) > 1 else "dataset"
     # tokenizer = tokenizer.MeCabTokenizer("vocab.json")
     tokenizer = tokenizer.SentencePieceTokenizer("sp_model_32768.model")
-    trn_dataset = np.array(tokenizer.encode("\n".join(trn_dataset)), dtype=np.int32)
-    val_dataset = np.array(tokenizer.encode("\n".join(val_dataset)), dtype=np.int32)
+    trn_dataset = load_dataset(
+        os.path.join(dataset_dir, "training", "**", "*.txt"),
+        tokenizer,
+        os.path.join(dataset_dir, "trn_dataset.npy"),
+    )
+    val_dataset = load_dataset(
+        os.path.join(dataset_dir, "validation", "**", "*.txt"),
+        tokenizer,
+        os.path.join(dataset_dir, "val_dataset.npy"),
+    )
 
     print(f"Vocabulary size: {tokenizer.vocab_size}")
 
