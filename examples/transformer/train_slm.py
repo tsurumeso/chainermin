@@ -154,7 +154,7 @@ class SmallLanguageModel(chainermin.Chain):
         x = self.ln(x, n_batch_axes=2)
         return F.linear(x, self.tok_embd.W, n_batch_axes=2)
 
-    def generate(self, start_tokens, temperature=1.0, top_k=10):
+    def generate(self, start_tokens, temperature=1.0, top_k=10, repetition_penalty=1.0):
         # (1, T) の形状に変換
         curr_x = self.xp.array(start_tokens, dtype=np.int32)[None, :]
 
@@ -169,6 +169,16 @@ class SmallLanguageModel(chainermin.Chain):
         # 最後のステップの Logits を取得
         logits = logits.data
         next_token_logits = logits[:, -1, :]
+
+        # Repetition Penalty の適用 (既出トークンのLogitを減衰)
+        if repetition_penalty != 1.0:
+            seen_tokens = self.xp.unique(x_crop)
+            seen_logits = next_token_logits[:, seen_tokens]
+            next_token_logits[:, seen_tokens] = self.xp.where(
+                seen_logits < 0,
+                seen_logits * repetition_penalty,
+                seen_logits / repetition_penalty,
+            )
 
         # Temperature スケーリング
         if temperature != 1.0:
@@ -338,7 +348,9 @@ if __name__ == "__main__":
 
             prev_text = ""
             for _ in range(context_length - prompt_length):
-                prompt = model.generate(start_tokens=prompt, temperature=1.0, top_k=10)
+                prompt = model.generate(
+                    start_tokens=prompt, temperature=0.8, top_k=20, repetition_penalty=1.2
+                )
 
                 generated_ids = chainermin.backend.to_cpu(prompt[prompt_length:])
                 decoded_text = tokenizer.decode(generated_ids)
