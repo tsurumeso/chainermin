@@ -45,6 +45,36 @@ from chainermin import optimizers
 #         return out
 
 
+class RoPE(chainermin.function.FunctionNode):
+    """Rotary Position Embedding (RoPE)."""
+
+    def __init__(self, cos, sin):
+        self.cos = cos
+        self.sin = sin
+
+    def forward(self, inputs):
+        (x,) = inputs
+        xp = chainermin.backend.get_array_module(x)
+        d = x.shape[-1] // 2
+        x1, x2 = x[..., :d], x[..., d:]
+        y1 = x1 * self.cos - x2 * self.sin
+        y2 = x1 * self.sin + x2 * self.cos
+        return (xp.concatenate([y1, y2], axis=-1),)
+
+    def backward(self, inputs, grad_outputs):
+        (gy,) = grad_outputs
+        xp = chainermin.backend.get_array_module(gy)
+        d = gy.shape[-1] // 2
+        gy1, gy2 = gy[..., :d], gy[..., d:]
+        gx1 = gy1 * self.cos + gy2 * self.sin
+        gx2 = -gy1 * self.sin + gy2 * self.cos
+        return (xp.concatenate([gx1, gx2], axis=-1),)
+
+
+def rope(x, cos, sin):
+    return RoPE(cos, sin)(x)
+
+
 class MultiHeadAttention(chainermin.Chain):
     """Multi-head causal self-attention (single matmul formulation)."""
 
@@ -74,6 +104,18 @@ class MultiHeadAttention(chainermin.Chain):
         k = k.reshape(B, T, H, d).transpose(0, 2, 1, 3)
         v = v.reshape(B, T, H, d).transpose(0, 2, 1, 3)
 
+        # RoPE の適用
+        half_d = d // 2
+        inv_freq = self.xp.exp(
+            -math.log(10000.0) * self.xp.arange(0, half_d, dtype=dtype) / half_d
+        )
+        t = self.xp.arange(T, dtype=dtype)
+        freqs = self.xp.outer(t, inv_freq)[None, None, :, :]
+        cos = self.xp.cos(freqs)
+        sin = self.xp.sin(freqs)
+        q = rope(q, cos, sin)
+        k = rope(k, cos, sin)
+
         # (B, H, T, d) @ (B, H, d, T) -> (B, H, T, T)
         attn = F.batch_matmul(q, k.transpose(0, 1, 3, 2)) / np.sqrt(d, dtype=dtype)
         attn = F.where(causal_mask[None, None, :, :] == 0, -np.inf, attn)
@@ -90,16 +132,19 @@ class MultiHeadAttention(chainermin.Chain):
 
 
 class FeedForward(chainermin.Chain):
-    """A simple linear layer followed by a non-linearity."""
+    """SwiGLU feed-forward network."""
 
     def __init__(self, embd_size):
         super().__init__()
-        self.fc1 = L.Linear(embd_size, 4 * embd_size, nobias=True)
-        self.fc2 = L.Linear(4 * embd_size, embd_size, nobias=True)
+        hidden_size = int(4 * embd_size * 2 / 3)
+        self.w_gate = L.Linear(embd_size, hidden_size, nobias=True)
+        self.w_up = L.Linear(embd_size, hidden_size, nobias=True)
+        self.w_down = L.Linear(hidden_size, embd_size, nobias=True)
 
     def __call__(self, x):
-        x = F.relu(self.fc1(x, n_batch_axes=2))
-        x = self.fc2(x, n_batch_axes=2)
+        gate = F.silu(self.w_gate(x, n_batch_axes=2))
+        up = self.w_up(x, n_batch_axes=2)
+        x = self.w_down(gate * up, n_batch_axes=2)
         x = F.dropout(x, ratio=0.1)
         return x
 
@@ -128,7 +173,6 @@ class SmallLanguageModel(chainermin.Chain):
     def __init__(self, vocab_size, context_length, num_layers, num_heads, embd_size):
         super().__init__()
         self.tok_embd = L.EmbedID(vocab_size, embd_size, wscale=0.02)
-        self.pos_embd = L.EmbedID(context_length, embd_size, wscale=0.02)
         for idx in range(num_layers):
             layer_name = f"block_{idx}"
             layer = DecoderBlock(num_heads, embd_size)
@@ -139,10 +183,8 @@ class SmallLanguageModel(chainermin.Chain):
         self.context_length = context_length
 
     def __call__(self, x, causal_mask):
-        # Token + position embeddings
-        pos_ids = self.xp.arange(x.shape[1], dtype=np.int32)
-        batched_pos_ids = self.xp.broadcast_to(pos_ids, x.shape)
-        x = self.tok_embd(x) + self.pos_embd(batched_pos_ids)
+        # Token embeddings (positional information is injected via RoPE in each block)
+        x = self.tok_embd(x)
 
         # Dropout after embeddings
         x = F.dropout(x, ratio=0.1)
