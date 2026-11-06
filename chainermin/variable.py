@@ -89,7 +89,7 @@ class Variable:
     def rank(self):
         return self._node.rank
 
-    def backward(self, retain_grad=False):
+    def backward(self, retain_grad=False, loss_scale=None):
         if self.creator_node is None:
             return
 
@@ -99,7 +99,10 @@ class Variable:
 
         xp = backend.get_array_module(self.data)
         if self.data.size == 1 and self.grad is None:
-            self.grad = xp.ones_like(self.data)
+            if loss_scale is None:
+                self.grad = xp.ones_like(self.data)
+            else:
+                self.grad = xp.full_like(self.data, loss_scale)
         grads[self._node] = self.grad
 
         def add_cand(cand):
