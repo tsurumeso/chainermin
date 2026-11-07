@@ -87,6 +87,34 @@ class MultiHeadAttention(chainermin.Chain):
         self.query = L.Linear(embd_size, embd_size, nobias=True)
         self.value = L.Linear(embd_size, embd_size, nobias=True)
         self.proj = L.Linear(embd_size, embd_size, nobias=True)
+        self._cos = None
+        self._sin = None
+        self._causal_mask = None
+
+    def _get_cache(self, T, dtype):
+        if (
+            self._cos is None
+            or self._cos.shape[2] < T
+            or self._cos.dtype != dtype
+            or chainermin.backend.get_array_module(self._cos) is not self.xp
+        ):
+            max_len = max(T, 1024)
+            half_d = self.head_size // 2
+            inv_freq = self.xp.exp(
+                -math.log(10000.0) * self.xp.arange(0, half_d, dtype=np.float32) / half_d
+            )
+            t = self.xp.arange(max_len, dtype=np.float32)
+            freqs = self.xp.outer(t, inv_freq)[None, None, :, :]
+            self._cos = self.xp.cos(freqs).astype(dtype, copy=False)
+            self._sin = self.xp.sin(freqs).astype(dtype, copy=False)
+            self._causal_mask = self.xp.triu(
+                self.xp.ones((1, 1, max_len, max_len), dtype=bool), k=1
+            )
+        return (
+            self._cos[:, :, :T, :],
+            self._sin[:, :, :T, :],
+            self._causal_mask[:, :, :T, :T],
+        )
 
     def __call__(self, x):
         dtype = x.data.dtype
@@ -104,22 +132,14 @@ class MultiHeadAttention(chainermin.Chain):
         k = k.reshape(B, T, H, d).transpose(0, 2, 1, 3)
         v = v.reshape(B, T, H, d).transpose(0, 2, 1, 3)
 
-        # RoPE の適用 (角度計算は精度維持のため float32 で行い dtype にキャスト)
-        half_d = d // 2
-        inv_freq = self.xp.exp(
-            -math.log(10000.0) * self.xp.arange(0, half_d, dtype=np.float32) / half_d
-        )
-        t = self.xp.arange(T, dtype=np.float32)
-        freqs = self.xp.outer(t, inv_freq)[None, None, :, :]
-        cos = self.xp.cos(freqs).astype(dtype, copy=False)
-        sin = self.xp.sin(freqs).astype(dtype, copy=False)
+        # RoPE の適用
+        cos, sin, causal_mask = self._get_cache(T, dtype)
         q = rope(q, cos, sin)
         k = rope(k, cos, sin)
 
         # (B, H, T, d) @ (B, H, d, T) -> (B, H, T, T)
         attn = F.batch_matmul(q, k.transpose(0, 1, 3, 2)) / np.sqrt(d, dtype=dtype)
-        causal_mask = self.xp.tril(self.xp.ones((T, T), dtype=np.int32))
-        attn = F.where(causal_mask[None, None, :, :] == 0, -np.inf, attn)
+        attn = F.where(causal_mask, -np.inf, attn)
         attn = F.softmax(attn, axis=-1)
 
         # (B, H, T, T) @ (B, H, T, d) -> (B, H, T, d)
