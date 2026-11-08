@@ -2,7 +2,7 @@ import sys
 
 import numpy as np
 import tokenizer
-from train_slm import SmallLanguageModel
+from model import SmallLanguageModel
 
 import chainermin
 
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     top_k = 20
     repetition_penalty = 1.2
 
-    tokenizer = tokenizer.SentencePieceTokenizer("sp_model_32768.model")
+    tokenizer = tokenizer.SentencePieceTokenizer("ja_unigram_32768.model")
     model = SmallLanguageModel(
         vocab_size=tokenizer.vocab_size,
         context_length=context_length,
