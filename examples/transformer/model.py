@@ -69,13 +69,13 @@ class MultiHeadAttention(chainermin.Chain):
             freqs = self.xp.outer(t, inv_freq)[None, None, :, :]
             self._cos = self.xp.cos(freqs).astype(dtype, copy=False)
             self._sin = self.xp.sin(freqs).astype(dtype, copy=False)
-            self._causal_mask = self.xp.triu(
-                self.xp.ones((1, 1, max_len, max_len), dtype=bool), k=1
-            )
+            # self._causal_mask = self.xp.triu(
+            #     self.xp.ones((1, 1, max_len, max_len), dtype=bool), k=1
+            # )
         return (
             self._cos[:, :, :T, :],
             self._sin[:, :, :T, :],
-            self._causal_mask[:, :, :T, :T],
+            # self._causal_mask[:, :, :T, :T],
         )
 
     def __call__(self, x):
@@ -95,17 +95,18 @@ class MultiHeadAttention(chainermin.Chain):
         v = v.reshape(B, T, H, d).transpose(0, 2, 1, 3)
 
         # RoPE の適用
-        cos, sin, causal_mask = self._get_cache(T, dtype)
+        cos, sin = self._get_cache(T, dtype)
         q = rope(q, cos, sin)
         k = rope(k, cos, sin)
 
-        # (B, H, T, d) @ (B, H, d, T) -> (B, H, T, T)
-        attn = F.batch_matmul(q, k.transpose(0, 1, 3, 2)) / np.sqrt(d, dtype=dtype)
-        attn = F.where(causal_mask, -np.inf, attn)
-        attn = F.softmax(attn, axis=-1)
-
-        # (B, H, T, T) @ (B, H, T, d) -> (B, H, T, d)
-        out = F.batch_matmul(attn, v)
+        # # (B, H, T, d) @ (B, H, d, T) -> (B, H, T, T)
+        # attn = F.batch_matmul(q, k.transpose(0, 1, 3, 2)) / np.sqrt(d, dtype=dtype)
+        # attn = F.where(causal_mask, -np.inf, attn)
+        # attn = F.softmax(attn, axis=-1)
+        #
+        # # (B, H, T, T) @ (B, H, T, d) -> (B, H, T, d)
+        # out = F.batch_matmul(attn, v)
+        out = F.scaled_dot_product_attention(q, k, v, is_causal=True)
 
         # (B, H, T, d) -> (B, T, H*d) = (B, T, embd_size)
         out = out.transpose(0, 2, 1, 3).reshape(B, T, -1)

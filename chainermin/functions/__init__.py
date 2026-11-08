@@ -20,6 +20,9 @@ from chainermin.functions.loss.softmax_cross_entropy import softmax_cross_entrop
 from chainermin.functions.math import basic_math  # NOQA
 from chainermin.functions.math.matmul import matmul  # NOQA
 from chainermin.functions.math.matmul import batch_matmul  # NOQA
+from chainermin.functions.math.scaled_dot_product_attention import (  # NOQA
+    scaled_dot_product_attention,
+)
 
 from chainermin.functions.noise.dropout import dropout  # NOQA
 
